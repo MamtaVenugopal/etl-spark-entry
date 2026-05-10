@@ -97,6 +97,58 @@
   --sidebar-ring: oklch(0.704 0.04 256.788);
 }
 
+:root {
+  --agent-violet: oklch(0.62 0.25 295);
+  --agent-cyan: oklch(0.78 0.18 200);
+  --agent-magenta: oklch(0.68 0.28 340);
+  --gradient-agent: linear-gradient(135deg, var(--agent-violet), var(--agent-cyan) 50%, var(--agent-magenta));
+  --gradient-hero: radial-gradient(ellipse at 20% 10%, color-mix(in oklab, var(--agent-violet) 40%, transparent), transparent 60%),
+                   radial-gradient(ellipse at 80% 30%, color-mix(in oklab, var(--agent-cyan) 35%, transparent), transparent 60%),
+                   radial-gradient(ellipse at 50% 90%, color-mix(in oklab, var(--agent-magenta) 35%, transparent), transparent 60%);
+  --shadow-glow: 0 0 60px -10px color-mix(in oklab, var(--agent-violet) 70%, transparent);
+  --shadow-glow-cyan: 0 0 40px -10px color-mix(in oklab, var(--agent-cyan) 70%, transparent);
+}
+
+@theme inline {
+  --color-agent-violet: var(--agent-violet);
+  --color-agent-cyan: var(--agent-cyan);
+  --color-agent-magenta: var(--agent-magenta);
+}
+
+@keyframes orb-pulse {
+  0%, 100% { transform: scale(1); opacity: 0.9; }
+  50% { transform: scale(1.08); opacity: 1; }
+}
+@keyframes gradient-shift {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+@keyframes float-slow {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-12px); }
+}
+
+.animate-orb { animation: orb-pulse 4s ease-in-out infinite; }
+.animate-gradient { background-size: 200% 200%; animation: gradient-shift 8s ease infinite; }
+.animate-float { animation: float-slow 6s ease-in-out infinite; }
+.text-gradient-agent {
+  background: var(--gradient-agent);
+  background-size: 200% 200%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: gradient-shift 8s ease infinite;
+}
+.shimmer-btn {
+  background-image: linear-gradient(110deg, transparent 30%, color-mix(in oklab, var(--agent-cyan) 40%, transparent) 50%, transparent 70%);
+  background-size: 200% 100%;
+  animation: shimmer 2.5s linear infinite;
+}
+
 .dark {
   --background: oklch(0.129 0.042 264.695);
   --foreground: oklch(0.984 0.003 247.858);
