@@ -1,26 +1,44 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useEffect } from "react";
+import { Toaster } from "@/components/ui/sonner";
+import { Hero } from "@/components/landing/Hero";
+import { HowItWorks } from "@/components/landing/HowItWorks";
+import { StoryIntake } from "@/components/landing/StoryIntake";
+import { Capabilities } from "@/components/landing/Capabilities";
+import { Footer } from "@/components/landing/Footer";
 
 export const Route = createFileRoute("/")({
   component: Index,
+  head: () => ({
+    meta: [
+      { title: "Autonomous ETL Agent — Story Intake" },
+      {
+        name: "description",
+        content:
+          "Describe your ETL pipeline in plain English. The agent refines it into a user story and files it in Jira (project AEA).",
+      },
+      { property: "og:title", content: "Autonomous ETL Agent — Story Intake" },
+      {
+        property: "og:description",
+        content: "Free-text in. Structured Jira ticket out. Built for ETL teams.",
+      },
+    ],
+  }),
 });
 
-// IMPORTANT: Replace this placeholder. For sites with multiple pages (About, Services, Contact, etc.),
-// create separate route files (about.tsx, services.tsx, contact.tsx) — don't put all pages in this file.
-function PlaceholderIndex() {
-  return (
-    <div
-      className="flex min-h-screen items-center justify-center"
-      style={{ backgroundColor: "#fcfbf8" }}
-    >
-      <img
-        data-lovable-blank-page-placeholder="REMOVE_THIS"
-        src="https://cdn.gpteng.co/blank-app-v1.svg"
-        alt="Your app will live here!"
-      />
-    </div>
-  );
-}
-
 function Index() {
-  return <PlaceholderIndex />;
+  useEffect(() => {
+    document.documentElement.classList.add("dark");
+  }, []);
+
+  return (
+    <main className="min-h-screen bg-background text-foreground">
+      <Hero />
+      <HowItWorks />
+      <StoryIntake />
+      <Capabilities />
+      <Footer />
+      <Toaster richColors theme="dark" position="top-center" />
+    </main>
+  );
 }
