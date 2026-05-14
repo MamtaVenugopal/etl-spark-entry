@@ -41,7 +41,9 @@ export async function createJiraIssue(story: EtlStory): Promise<{ key: string; u
   // Webhook override: if JIRA_WEBHOOK_OVERRIDE_URL is set, POST the payload there
   // instead of Jira. Useful for inspecting the request shape via webhook.site.
   const overrideUrl = process.env.JIRA_WEBHOOK_OVERRIDE_URL;
+  console.log("[jira] override env present:", Boolean(overrideUrl), "url:", overrideUrl);
   if (overrideUrl) {
+    console.log("[jira] posting to webhook override:", overrideUrl);
     const jiraPayload = {
       fields: {
         project: { key: "AEA" },
