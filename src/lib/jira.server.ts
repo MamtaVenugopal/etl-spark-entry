@@ -38,6 +38,32 @@ function adfFromStory(story: EtlStory) {
 }
 
 export async function createJiraIssue(story: EtlStory): Promise<{ key: string; url: string }> {
+  // Webhook override: if JIRA_WEBHOOK_OVERRIDE_URL is set, POST the payload there
+  // instead of Jira. Useful for inspecting the request shape via webhook.site.
+  const overrideUrl = process.env.JIRA_WEBHOOK_OVERRIDE_URL;
+  if (overrideUrl) {
+    const jiraPayload = {
+      fields: {
+        project: { key: "AEA" },
+        summary: story.title.slice(0, 240),
+        description: adfFromStory(story),
+        issuetype: { name: "Task" },
+        labels: ["etl-agent", "auto-intake"],
+      },
+    };
+    const res = await fetch(overrideUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ story, jiraPayload }),
+    });
+    if (!res.ok) {
+      const txt = await res.text();
+      console.error("Webhook override failed", res.status, txt);
+      throw new Error(`Webhook override failed (${res.status})`);
+    }
+    return { key: "WEBHOOK-TEST", url: overrideUrl };
+  }
+
   const baseUrl = (process.env.JIRA_BASE_URL || "").replace(/\/$/, "");
   const email = process.env.JIRA_EMAIL;
   const token = process.env.JIRA_API_TOKEN;
