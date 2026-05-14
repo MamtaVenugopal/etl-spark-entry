@@ -51,7 +51,9 @@ export function StoryIntake() {
         toast.error(res.error ?? "Failed to create Jira issue.");
       } else {
         setIssue({ key: res.key, url: res.url });
-        toast.success(`Created ${res.key} in Jira`);
+        toast.success(
+          res.key === "WEBHOOK-SITE" ? "Payload sent to webhook.site" : `Created ${res.key} in Jira`,
+        );
       }
     } finally {
       setSubmitting(false);
