@@ -314,8 +314,8 @@ export function StoryIntake() {
                       <div className="text-foreground">{s.name ?? "step"}</div>
                       {s.message && <div className="text-muted-foreground mt-1">{s.message}</div>}
                     </div>
-                    {s.status && (
-                      <span className="text-agent-cyan uppercase">{s.status}</span>
+                    {(s.state ?? s.status) && (
+                      <span className="text-agent-cyan uppercase">{s.state ?? s.status}</span>
                     )}
                   </li>
                 ))}
