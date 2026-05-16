@@ -15,6 +15,7 @@ const API_BASE = import.meta.env.VITE_API_BASE_URL as string | undefined;
 
 type RunStep = {
   name?: string;
+  state?: string;
   status?: string;
   message?: string;
   [k: string]: unknown;
