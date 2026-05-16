@@ -1,7 +1,5 @@
 import type { EtlStory } from "./etl-story.schema";
 
-const WEBHOOK_SITE_TEST_URL = "https://webhook.site/5a29ffd0-993a-4564-bd53-1b8838bb494b";
-
 function adfFromStory(story: EtlStory) {
   const para = (text: string) => ({
     type: "paragraph",
@@ -40,35 +38,6 @@ function adfFromStory(story: EtlStory) {
 }
 
 export async function createJiraIssue(story: EtlStory): Promise<{ key: string; url: string }> {
-  // Temporary payload inspection: route Ship to Jira directly to webhook.site.
-  // The configured secret currently points at Jira, so keep the test URL in code.
-  const overrideUrl = WEBHOOK_SITE_TEST_URL || process.env.JIRA_WEBHOOK_OVERRIDE_URL;
-  console.log("[jira] override env present:", Boolean(overrideUrl), "url:", overrideUrl);
-  if (overrideUrl) {
-    console.log("[jira] posting to webhook override:", overrideUrl);
-    const jiraPayload = {
-      fields: {
-        project: { key: "AEA" },
-        summary: story.title.slice(0, 240),
-        description: adfFromStory(story),
-        issuetype: { name: "Task" },
-        labels: ["etl-agent", "auto-intake"],
-      },
-    };
-    const res = await fetch(overrideUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ story, jiraPayload }),
-    });
-    if (!res.ok) {
-      const txt = await res.text();
-      console.error("[jira] Webhook override failed", res.status, txt);
-      throw new Error(`Webhook override failed (${res.status})`);
-    }
-    console.log("[jira] webhook override succeeded:", res.status);
-    return { key: "WEBHOOK-SITE", url: overrideUrl };
-  }
-
   const baseUrl = (process.env.JIRA_BASE_URL || "").replace(/\/$/, "");
   const email = process.env.JIRA_EMAIL;
   const token = process.env.JIRA_API_TOKEN;
