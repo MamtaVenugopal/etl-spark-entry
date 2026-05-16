@@ -1,26 +1,48 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { refineEtlStory } from "@/lib/refine-story.functions";
-import { submitToJira } from "@/lib/jira.functions";
 import type { EtlStory } from "@/lib/etl-story.schema";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Loader2, Sparkles, Send, ExternalLink } from "lucide-react";
+import { Loader2, Sparkles, Send, CheckCircle2, ShieldCheck } from "lucide-react";
 
 const PLACEHOLDER = `e.g. We need to ingest daily Salesforce opportunity data into Snowflake. Mask PII fields, join with HubSpot leads on email, and surface a refreshed table by 8am UTC. Analysts will use it for revenue dashboards.`;
 
+const API_BASE = import.meta.env.VITE_API_BASE_URL as string | undefined;
+
+type RunStep = {
+  name?: string;
+  status?: string;
+  message?: string;
+  [k: string]: unknown;
+};
+
+type RunState = {
+  run_id: string;
+  status: string;
+  steps?: RunStep[];
+  [k: string]: unknown;
+};
+
 export function StoryIntake() {
   const refine = useServerFn(refineEtlStory);
-  const submit = useServerFn(submitToJira);
 
   const [raw, setRaw] = useState("");
   const [story, setStory] = useState<EtlStory | null>(null);
   const [refining, setRefining] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [issue, setIssue] = useState<{ key: string; url: string } | null>(null);
+  const [run, setRun] = useState<RunState | null>(null);
+  const [acting, setActing] = useState<"confirm" | "approve" | null>(null);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+    };
+  }, []);
 
   async function handleRefine() {
     if (raw.trim().length < 20) {
@@ -28,39 +50,113 @@ export function StoryIntake() {
       return;
     }
     setRefining(true);
-    setIssue(null);
+    setRun(null);
     try {
       const res = await refine({ data: { raw } });
       if (res.error || !res.story) {
         toast.error(res.error ?? "Could not refine story.");
       } else {
         setStory(res.story);
-        toast.success("Story refined. Review and ship to Jira.");
+        toast.success("Story refined. Review and ship.");
       }
     } finally {
       setRefining(false);
     }
   }
 
+  function startPolling(runId: string) {
+    if (pollRef.current) clearInterval(pollRef.current);
+    const tick = async () => {
+      try {
+        const r = await fetch(`${API_BASE}/runs/${runId}`);
+        if (!r.ok) return;
+        const data = (await r.json()) as RunState;
+        setRun(data);
+        const terminal = ["COMPLETED", "FAILED", "CANCELLED", "ERROR"];
+        if (terminal.includes((data.status || "").toUpperCase())) {
+          if (pollRef.current) {
+            clearInterval(pollRef.current);
+            pollRef.current = null;
+          }
+        }
+      } catch (e) {
+        // swallow transient errors
+      }
+    };
+    tick();
+    pollRef.current = setInterval(tick, 3000);
+  }
+
   async function handleSubmit() {
     if (!story) return;
+    if (!API_BASE) {
+      toast.error("VITE_API_BASE_URL is not configured.");
+      return;
+    }
     setSubmitting(true);
     try {
-      const res = await submit({ data: story });
-      if (res.error || !res.key || !res.url) {
-        toast.error(res.error ?? "Failed to create Jira issue.");
-      } else {
-        setIssue({ key: res.key, url: res.url });
-        toast.success(`Created ${res.key} in Jira`);
+      const body = {
+        story_id: "US-" + Date.now(),
+        title: story.title,
+        input_mode: "yaml",
+        content: JSON.stringify(story),
+      };
+      const res = await fetch(`${API_BASE}/stories`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const txt = await res.text();
+        toast.error(`Submit failed (${res.status}): ${txt.slice(0, 200)}`);
+        return;
       }
+      const data = (await res.json()) as { run_id?: string; id?: string };
+      const runId = data.run_id ?? data.id;
+      if (!runId) {
+        toast.error("No run_id returned from API.");
+        return;
+      }
+      setRun({ run_id: runId, status: "PENDING" });
+      toast.success(`Submitted. Tracking run ${runId}`);
+      startPolling(runId);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Submit failed");
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  async function handleAction(kind: "confirm" | "approve") {
+    if (!run?.run_id || !API_BASE) return;
+    setActing(kind);
+    try {
+      const res = await fetch(`${API_BASE}/runs/${run.run_id}/${kind}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      if (!res.ok) {
+        const txt = await res.text();
+        toast.error(`${kind} failed (${res.status}): ${txt.slice(0, 200)}`);
+        return;
+      }
+      toast.success(`${kind === "confirm" ? "Confirmed" : "Approved"}.`);
+      startPolling(run.run_id);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : `${kind} failed`);
+    } finally {
+      setActing(null);
     }
   }
 
   function update<K extends keyof EtlStory>(k: K, v: EtlStory[K]) {
     setStory((s) => (s ? { ...s, [k]: v } : s));
   }
+
+  const status = (run?.status || "").toUpperCase();
+  const awaitingConfirm = status === "AWAITING_CONFIRMATION";
+  const awaitingApprove = status === "AWAITING_PR_APPROVAL";
 
   return (
     <section id="intake" className="container mx-auto px-6 py-20">
@@ -70,7 +166,7 @@ export function StoryIntake() {
             Tell the agent your <span className="text-gradient-agent">user story</span>
           </h2>
           <p className="mt-3 text-muted-foreground">
-            Free-text in. Structured ticket out. Lands in Jira project AEA.
+            Free-text in. Structured story out. Tracked end-to-end via the agent runtime.
           </p>
         </div>
 
@@ -96,11 +192,7 @@ export function StoryIntake() {
               className="relative overflow-hidden border border-white/15"
               style={{ background: "var(--gradient-agent)" }}
             >
-              {refining ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Sparkles className="h-4 w-4" />
-              )}
+              {refining ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
               {refining ? "Refining…" : "Refine with AI"}
             </Button>
           </div>
@@ -188,24 +280,77 @@ export function StoryIntake() {
                 className="border border-white/15"
                 style={{ background: "var(--gradient-agent)", boxShadow: "var(--shadow-glow)" }}
               >
-                {submitting ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Send className="h-4 w-4" />
-                )}
-                {submitting ? "Filing in Jira…" : "Ship to Jira (AEA)"}
+                {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                {submitting ? "Submitting…" : "Ship to Agent"}
               </Button>
-              {issue && (
-                <a
-                  href={issue.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center gap-2 text-agent-cyan hover:underline font-mono text-sm"
-                >
-                  {issue.key} <ExternalLink className="h-3.5 w-3.5" />
-                </a>
-              )}
             </div>
+          </div>
+        )}
+
+        {run && (
+          <div className="mt-8 rounded-2xl border border-white/10 bg-card/40 backdrop-blur p-6 md:p-8 space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="font-mono text-xs tracking-widest text-agent-cyan">
+                RUN · {run.run_id}
+              </div>
+              <div className="font-mono text-xs px-2 py-1 rounded border border-white/15 bg-background/40">
+                {run.status || "…"}
+              </div>
+            </div>
+
+            {run.steps && run.steps.length > 0 && (
+              <ol className="space-y-2">
+                {run.steps.map((s, i) => (
+                  <li
+                    key={i}
+                    className="flex items-start gap-3 rounded-md border border-white/10 bg-background/30 p-3 font-mono text-xs"
+                  >
+                    <span className="text-muted-foreground">{String(i + 1).padStart(2, "0")}</span>
+                    <div className="flex-1">
+                      <div className="text-foreground">{s.name ?? "step"}</div>
+                      {s.message && <div className="text-muted-foreground mt-1">{s.message}</div>}
+                    </div>
+                    {s.status && (
+                      <span className="text-agent-cyan uppercase">{s.status}</span>
+                    )}
+                  </li>
+                ))}
+              </ol>
+            )}
+
+            {(awaitingConfirm || awaitingApprove) && (
+              <div className="flex flex-wrap items-center gap-3 pt-2">
+                {awaitingConfirm && (
+                  <Button
+                    onClick={() => handleAction("confirm")}
+                    disabled={acting !== null}
+                    className="border border-white/15"
+                  >
+                    {acting === "confirm" ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <CheckCircle2 className="h-4 w-4" />
+                    )}
+                    Confirm
+                  </Button>
+                )}
+                {awaitingApprove && (
+                  <Button
+                    onClick={() => handleAction("approve")}
+                    disabled={acting !== null}
+                    className="border border-white/15"
+                    style={{ background: "var(--gradient-agent)" }}
+                  >
+                    {acting === "approve" ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <ShieldCheck className="h-4 w-4" />
+                    )}
+                    Approve PR
+                  </Button>
+                )}
+              </div>
+            )}
           </div>
         )}
       </div>
