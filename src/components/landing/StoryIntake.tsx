@@ -69,10 +69,13 @@ export function StoryIntake() {
     const tick = async () => {
       try {
         const r = await fetch(`${API_BASE}/runs/${runId}`);
-        if (!r.ok) return;
+        if (!r.ok) {
+          console.error("Run poll failed", r.status, await r.text().catch(() => ""));
+          return;
+        }
         const data = (await r.json()) as RunState;
         setRun(data);
-        const terminal = ["COMPLETED", "FAILED", "CANCELLED", "ERROR"];
+        const terminal = ["COMPLETED", "COMPLETE", "FAILED", "CANCELLED", "ERROR"];
         if (terminal.includes((data.status || "").toUpperCase())) {
           if (pollRef.current) {
             clearInterval(pollRef.current);
@@ -80,7 +83,7 @@ export function StoryIntake() {
           }
         }
       } catch (e) {
-        // swallow transient errors
+        console.error("Run poll error", e);
       }
     };
     tick();
