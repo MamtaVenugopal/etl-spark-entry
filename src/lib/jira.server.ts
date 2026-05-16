@@ -1,7 +1,5 @@
 import type { EtlStory } from "./etl-story.schema";
 
-const WEBHOOK_SITE_TEST_URL = "https://webhook.site/5a29ffd0-993a-4564-bd53-1b8838bb494b";
-
 function adfFromStory(story: EtlStory) {
   const para = (text: string) => ({
     type: "paragraph",
