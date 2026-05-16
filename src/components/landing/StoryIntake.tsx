@@ -15,6 +15,7 @@ const API_BASE = import.meta.env.VITE_API_BASE_URL as string | undefined;
 
 type RunStep = {
   name?: string;
+  state?: string;
   status?: string;
   message?: string;
   [k: string]: unknown;
@@ -69,10 +70,13 @@ export function StoryIntake() {
     const tick = async () => {
       try {
         const r = await fetch(`${API_BASE}/runs/${runId}`);
-        if (!r.ok) return;
+        if (!r.ok) {
+          console.error("Run poll failed", r.status, await r.text().catch(() => ""));
+          return;
+        }
         const data = (await r.json()) as RunState;
         setRun(data);
-        const terminal = ["COMPLETED", "FAILED", "CANCELLED", "ERROR"];
+        const terminal = ["COMPLETED", "COMPLETE", "FAILED", "CANCELLED", "ERROR"];
         if (terminal.includes((data.status || "").toUpperCase())) {
           if (pollRef.current) {
             clearInterval(pollRef.current);
@@ -80,7 +84,7 @@ export function StoryIntake() {
           }
         }
       } catch (e) {
-        // swallow transient errors
+        console.error("Run poll error", e);
       }
     };
     tick();
@@ -310,8 +314,8 @@ export function StoryIntake() {
                       <div className="text-foreground">{s.name ?? "step"}</div>
                       {s.message && <div className="text-muted-foreground mt-1">{s.message}</div>}
                     </div>
-                    {s.status && (
-                      <span className="text-agent-cyan uppercase">{s.status}</span>
+                    {(s.state ?? s.status) && (
+                      <span className="text-agent-cyan uppercase">{s.state ?? s.status}</span>
                     )}
                   </li>
                 ))}
