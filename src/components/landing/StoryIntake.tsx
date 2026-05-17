@@ -69,7 +69,12 @@ export function StoryIntake() {
     if (pollRef.current) clearInterval(pollRef.current);
     const tick = async () => {
       try {
-        const r = await fetch(`${API_BASE}/runs/${runId}`);
+        const r = await fetch(`${API_BASE}/runs/${runId}`, {
+          headers: {
+            "Content-Type": "application/json",
+            "ngrok-skip-browser-warning": "true",
+          },
+        });
         if (!r.ok) {
           console.error("Run poll failed", r.status, await r.text().catch(() => ""));
           return;
@@ -107,7 +112,10 @@ export function StoryIntake() {
       };
       const res = await fetch(`${API_BASE}/stories`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "ngrok-skip-browser-warning": "true",
+        },
         body: JSON.stringify(body),
       });
       if (!res.ok) {
@@ -137,7 +145,10 @@ export function StoryIntake() {
     try {
       const res = await fetch(`${API_BASE}/runs/${run.run_id}/${kind}`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "ngrok-skip-browser-warning": "true",
+        },
         body: JSON.stringify({}),
       });
       if (!res.ok) {
