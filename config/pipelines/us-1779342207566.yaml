@@ -1,0 +1,5 @@
+story_id: US-1779342207566
+target_table: gold.monthly_revenue_summary_by_product_category
+source_tables:
+  - olist_products_raw
+  - olist_category_translation_raw
