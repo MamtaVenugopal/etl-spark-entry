@@ -1,0 +1,6 @@
+story_id: US-1779412447632
+target_table: gold.monthly_revenue_summary
+source_tables:
+- olist_products_raw
+- olist_category_translation_raw
+pipeline_module: src/pipelines/gold/monthly_revenue_summary.py
