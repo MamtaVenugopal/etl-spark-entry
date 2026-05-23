@@ -81,7 +81,13 @@ export type RunState = {
   steps?: RunStep[];
   parsed_spec?: unknown;
   evaluations?: Record<string, unknown>;
-  outputs?: RunOutputs;
+  gate_1_auto?: boolean;
+  gate_1_confirmed?: boolean;
+  gate_2_auto?: boolean;
+  gate_2_approved?: boolean;
+  outputs?: RunOutputs & {
+    pr_branch_delete_message?: string;
+  };
   report?: RunReport;
   result_preview?: ResultPreview;
   jira_sw_key?: string;
