@@ -293,6 +293,12 @@ export function RunStatus({
               </a>
             )}
           </div>
+          {run.outputs?.pr_merge_message && (
+            <p className="text-xs text-muted-foreground">{run.outputs.pr_merge_message}</p>
+          )}
+          {run.outputs?.pr_branch_delete_message && (
+            <p className="text-xs text-muted-foreground">{run.outputs.pr_branch_delete_message}</p>
+          )}
           <div className="flex flex-wrap items-center gap-2">
             {hasResultsPdf && (
               <Button
