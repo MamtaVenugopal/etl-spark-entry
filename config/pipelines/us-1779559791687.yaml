@@ -1,0 +1,5 @@
+story_id: US-1779559791687
+target_table: gold.quarterly_loyalty_points_per_product
+source_tables:
+  - olist_loyalty_points_raw
+  - olist_products_raw
