@@ -140,8 +140,12 @@ export function RunStatus({
   const awaitingConfirm = status === "AWAITING_CONFIRMATION";
   const awaitingApprove = status === "AWAITING_PR_APPROVAL";
   const isFailed = status === "FAILED" || status === "ERROR";
+  const gate1Auto = Boolean(run.gate_1_auto || run.gate_1_confirmed);
+  const gate2Auto = Boolean(run.gate_2_auto || run.gate_2_approved || run.outputs?.pr_merged);
+  // Poll until terminal (COMPLETE/FAILED); keep polling through awaiting gates
+  // so auto-approvals from the backend are picked up.
   const pauseStatuses = useMemo(
-    () => ["COMPLETE", "COMPLETED", "FAILED", "ERROR", "AWAITING_CONFIRMATION", "AWAITING_PR_APPROVAL"],
+    () => ["COMPLETE", "COMPLETED", "FAILED", "ERROR"],
     [],
   );
 
