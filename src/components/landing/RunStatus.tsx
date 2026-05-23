@@ -81,7 +81,13 @@ export type RunState = {
   steps?: RunStep[];
   parsed_spec?: unknown;
   evaluations?: Record<string, unknown>;
-  outputs?: RunOutputs;
+  gate_1_auto?: boolean;
+  gate_1_confirmed?: boolean;
+  gate_2_auto?: boolean;
+  gate_2_approved?: boolean;
+  outputs?: RunOutputs & {
+    pr_branch_delete_message?: string;
+  };
   report?: RunReport;
   result_preview?: ResultPreview;
   jira_sw_key?: string;
@@ -134,8 +140,12 @@ export function RunStatus({
   const awaitingConfirm = status === "AWAITING_CONFIRMATION";
   const awaitingApprove = status === "AWAITING_PR_APPROVAL";
   const isFailed = status === "FAILED" || status === "ERROR";
+  const gate1Auto = Boolean(run.gate_1_auto || run.gate_1_confirmed);
+  const gate2Auto = Boolean(run.gate_2_auto || run.gate_2_approved || run.outputs?.pr_merged);
+  // Poll until terminal (COMPLETE/FAILED); keep polling through awaiting gates
+  // so auto-approvals from the backend are picked up.
   const pauseStatuses = useMemo(
-    () => ["COMPLETE", "COMPLETED", "FAILED", "ERROR", "AWAITING_CONFIRMATION", "AWAITING_PR_APPROVAL"],
+    () => ["COMPLETE", "COMPLETED", "FAILED", "ERROR"],
     [],
   );
 
@@ -175,13 +185,14 @@ export function RunStatus({
     if (!isComplete && !run.result_preview) return;
     let cancelled = false;
     (async () => {
-      const [results, audit] = await Promise.all([
-        headOk(`${API_BASE}/runs/${run.run_id}/report/results.pdf`),
-        headOk(`${API_BASE}/runs/${run.run_id}/report.pdf`),
-      ]);
-      if (!cancelled) {
-        setHasResultsPdf(results);
-        setHasAuditPdf(audit);
+      const audit = await headOk(`${API_BASE}/runs/${run.run_id}/report.pdf`);
+      if (cancelled) return;
+      setHasAuditPdf(audit);
+      if (run.result_preview) {
+        const results = await headOk(`${API_BASE}/runs/${run.run_id}/report/results.pdf`);
+        if (!cancelled) setHasResultsPdf(results);
+      } else {
+        setHasResultsPdf(false);
       }
     })();
     return () => {
@@ -282,6 +293,12 @@ export function RunStatus({
               </a>
             )}
           </div>
+          {run.outputs?.pr_merge_message && (
+            <p className="text-xs text-muted-foreground">{run.outputs.pr_merge_message}</p>
+          )}
+          {run.outputs?.pr_branch_delete_message && (
+            <p className="text-xs text-muted-foreground">{run.outputs.pr_branch_delete_message}</p>
+          )}
           <div className="flex flex-wrap items-center gap-2">
             {hasResultsPdf && (
               <Button
@@ -331,7 +348,13 @@ export function RunStatus({
       </div>
 
       {/* Gate 1: spec confirmation */}
-      {awaitingConfirm && (
+      {gate1Auto ? (
+        <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 flex items-center gap-2 text-sm text-emerald-200">
+          <ShieldCheck className="h-4 w-4" />
+          <span className="font-semibold">Gate 1:</span>
+          <span>Auto-approved (spec & schema checks passed)</span>
+        </div>
+      ) : awaitingConfirm ? (
         <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-4 space-y-4">
           <div className="flex items-center gap-2 text-amber-300">
             <AlertCircle className="h-5 w-5" />
@@ -409,10 +432,34 @@ export function RunStatus({
             Confirm spec
           </Button>
         </div>
-      )}
+      ) : null}
 
       {/* Gate 2: PR approval */}
-      {(awaitingApprove || run.outputs?.pr_merged) && (
+      {gate2Auto ? (
+        <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-4 space-y-2 text-sm">
+          <div className="flex items-center gap-2 text-emerald-200">
+            <ShieldCheck className="h-4 w-4" />
+            <span className="font-semibold">Gate 2:</span>
+            <span>Auto-approved (PR merged)</span>
+          </div>
+          {run.outputs?.pr_url && (
+            <a
+              href={run.outputs.pr_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 text-agent-cyan hover:underline"
+            >
+              <ExternalLink className="h-3.5 w-3.5" /> {run.outputs.pr_url}
+            </a>
+          )}
+          {run.outputs?.pr_merge_message && (
+            <div className="text-xs text-muted-foreground">{run.outputs.pr_merge_message}</div>
+          )}
+          {run.outputs?.pr_branch_delete_message && (
+            <div className="text-xs text-muted-foreground">{run.outputs.pr_branch_delete_message}</div>
+          )}
+        </div>
+      ) : awaitingApprove ? (
         <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-4 space-y-3">
           <div className="flex items-center gap-2 text-amber-300">
             <ShieldCheck className="h-5 w-5" />
@@ -428,33 +475,21 @@ export function RunStatus({
               <ExternalLink className="h-3.5 w-3.5" /> {run.outputs.pr_url}
             </a>
           )}
-          {awaitingApprove && (
-            <Button
-              onClick={() => handleAction("approve")}
-              disabled={acting !== null}
-              className="border border-white/15"
-              style={{ background: "var(--gradient-agent)" }}
-            >
-              {acting === "approve" ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <ShieldCheck className="h-4 w-4" />
-              )}
-              Approve & merge PR
-            </Button>
-          )}
-          {run.outputs?.pr_merged && (
-            <div className="text-sm">
-              <Badge variant="outline" className="border-emerald-500/40 text-emerald-300 mr-2">
-                merged
-              </Badge>
-              {run.outputs.pr_merge_message && (
-                <span className="text-muted-foreground">{run.outputs.pr_merge_message}</span>
-              )}
-            </div>
-          )}
+          <Button
+            onClick={() => handleAction("approve")}
+            disabled={acting !== null}
+            className="border border-white/15"
+            style={{ background: "var(--gradient-agent)" }}
+          >
+            {acting === "approve" ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <ShieldCheck className="h-4 w-4" />
+            )}
+            Approve & merge PR
+          </Button>
         </div>
-      )}
+      ) : null}
 
       {/* Tabs: results + audit */}
       <Tabs defaultValue="results" className="w-full">
