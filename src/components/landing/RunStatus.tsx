@@ -348,7 +348,13 @@ export function RunStatus({
       </div>
 
       {/* Gate 1: spec confirmation */}
-      {awaitingConfirm && (
+      {gate1Auto ? (
+        <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 flex items-center gap-2 text-sm text-emerald-200">
+          <ShieldCheck className="h-4 w-4" />
+          <span className="font-semibold">Gate 1:</span>
+          <span>Auto-approved (spec & schema checks passed)</span>
+        </div>
+      ) : awaitingConfirm ? (
         <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-4 space-y-4">
           <div className="flex items-center gap-2 text-amber-300">
             <AlertCircle className="h-5 w-5" />
@@ -426,7 +432,7 @@ export function RunStatus({
             Confirm spec
           </Button>
         </div>
-      )}
+      ) : null}
 
       {/* Gate 2: PR approval */}
       {(awaitingApprove || run.outputs?.pr_merged) && (
