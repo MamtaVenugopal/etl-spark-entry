@@ -435,7 +435,31 @@ export function RunStatus({
       ) : null}
 
       {/* Gate 2: PR approval */}
-      {(awaitingApprove || run.outputs?.pr_merged) && (
+      {gate2Auto ? (
+        <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-4 space-y-2 text-sm">
+          <div className="flex items-center gap-2 text-emerald-200">
+            <ShieldCheck className="h-4 w-4" />
+            <span className="font-semibold">Gate 2:</span>
+            <span>Auto-approved (PR merged)</span>
+          </div>
+          {run.outputs?.pr_url && (
+            <a
+              href={run.outputs.pr_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 text-agent-cyan hover:underline"
+            >
+              <ExternalLink className="h-3.5 w-3.5" /> {run.outputs.pr_url}
+            </a>
+          )}
+          {run.outputs?.pr_merge_message && (
+            <div className="text-xs text-muted-foreground">{run.outputs.pr_merge_message}</div>
+          )}
+          {run.outputs?.pr_branch_delete_message && (
+            <div className="text-xs text-muted-foreground">{run.outputs.pr_branch_delete_message}</div>
+          )}
+        </div>
+      ) : awaitingApprove ? (
         <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-4 space-y-3">
           <div className="flex items-center gap-2 text-amber-300">
             <ShieldCheck className="h-5 w-5" />
@@ -451,33 +475,21 @@ export function RunStatus({
               <ExternalLink className="h-3.5 w-3.5" /> {run.outputs.pr_url}
             </a>
           )}
-          {awaitingApprove && (
-            <Button
-              onClick={() => handleAction("approve")}
-              disabled={acting !== null}
-              className="border border-white/15"
-              style={{ background: "var(--gradient-agent)" }}
-            >
-              {acting === "approve" ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <ShieldCheck className="h-4 w-4" />
-              )}
-              Approve & merge PR
-            </Button>
-          )}
-          {run.outputs?.pr_merged && (
-            <div className="text-sm">
-              <Badge variant="outline" className="border-emerald-500/40 text-emerald-300 mr-2">
-                merged
-              </Badge>
-              {run.outputs.pr_merge_message && (
-                <span className="text-muted-foreground">{run.outputs.pr_merge_message}</span>
-              )}
-            </div>
-          )}
+          <Button
+            onClick={() => handleAction("approve")}
+            disabled={acting !== null}
+            className="border border-white/15"
+            style={{ background: "var(--gradient-agent)" }}
+          >
+            {acting === "approve" ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <ShieldCheck className="h-4 w-4" />
+            )}
+            Approve & merge PR
+          </Button>
         </div>
-      )}
+      ) : null}
 
       {/* Tabs: results + audit */}
       <Tabs defaultValue="results" className="w-full">
