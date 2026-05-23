@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { refineEtlStory } from "@/lib/refine-story.functions";
 import type { EtlStory } from "@/lib/etl-story.schema";
@@ -7,26 +7,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Loader2, Sparkles, Send, CheckCircle2, ShieldCheck } from "lucide-react";
+import { Loader2, Sparkles, Send } from "lucide-react";
+import { RunStatus, type RunState } from "./RunStatus";
 
 const PLACEHOLDER = `e.g. We need to ingest daily Salesforce opportunity data into Snowflake. Mask PII fields, join with HubSpot leads on email, and surface a refreshed table by 8am UTC. Analysts will use it for revenue dashboards.`;
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL as string | undefined;
-
-type RunStep = {
-  name?: string;
-  state?: string;
-  status?: string;
-  message?: string;
-  [k: string]: unknown;
-};
-
-type RunState = {
-  run_id: string;
-  status: string;
-  steps?: RunStep[];
-  [k: string]: unknown;
-};
 
 export function StoryIntake() {
   const refine = useServerFn(refineEtlStory);
@@ -36,14 +22,6 @@ export function StoryIntake() {
   const [refining, setRefining] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [run, setRun] = useState<RunState | null>(null);
-  const [acting, setActing] = useState<"confirm" | "approve" | null>(null);
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  useEffect(() => {
-    return () => {
-      if (pollRef.current) clearInterval(pollRef.current);
-    };
-  }, []);
 
   async function handleRefine() {
     if (raw.trim().length < 20) {
@@ -63,37 +41,6 @@ export function StoryIntake() {
     } finally {
       setRefining(false);
     }
-  }
-
-  function startPolling(runId: string) {
-    if (pollRef.current) clearInterval(pollRef.current);
-    const tick = async () => {
-      try {
-        const r = await fetch(`${API_BASE}/runs/${runId}`, {
-          headers: {
-            "Content-Type": "application/json",
-            "ngrok-skip-browser-warning": "true",
-          },
-        });
-        if (!r.ok) {
-          console.error("Run poll failed", r.status, await r.text().catch(() => ""));
-          return;
-        }
-        const data = (await r.json()) as RunState;
-        setRun(data);
-        const terminal = ["COMPLETED", "COMPLETE", "FAILED", "CANCELLED", "ERROR"];
-        if (terminal.includes((data.status || "").toUpperCase())) {
-          if (pollRef.current) {
-            clearInterval(pollRef.current);
-            pollRef.current = null;
-          }
-        }
-      } catch (e) {
-        console.error("Run poll error", e);
-      }
-    };
-    tick();
-    pollRef.current = setInterval(tick, 3000);
   }
 
   async function handleSubmit() {
@@ -131,7 +78,6 @@ export function StoryIntake() {
       }
       setRun({ run_id: runId, status: "PENDING" });
       toast.success(`Submitted. Tracking run ${runId}`);
-      startPolling(runId);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Submit failed");
     } finally {
@@ -139,39 +85,9 @@ export function StoryIntake() {
     }
   }
 
-  async function handleAction(kind: "confirm" | "approve") {
-    if (!run?.run_id || !API_BASE) return;
-    setActing(kind);
-    try {
-      const res = await fetch(`${API_BASE}/runs/${run.run_id}/${kind}`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "ngrok-skip-browser-warning": "true",
-        },
-        body: JSON.stringify({}),
-      });
-      if (!res.ok) {
-        const txt = await res.text();
-        toast.error(`${kind} failed (${res.status}): ${txt.slice(0, 200)}`);
-        return;
-      }
-      toast.success(`${kind === "confirm" ? "Confirmed" : "Approved"}.`);
-      startPolling(run.run_id);
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : `${kind} failed`);
-    } finally {
-      setActing(null);
-    }
-  }
-
   function update<K extends keyof EtlStory>(k: K, v: EtlStory[K]) {
     setStory((s) => (s ? { ...s, [k]: v } : s));
   }
-
-  const status = (run?.status || "").toUpperCase();
-  const awaitingConfirm = status === "AWAITING_CONFIRMATION";
-  const awaitingApprove = status === "AWAITING_PR_APPROVAL";
 
   return (
     <section id="intake" className="container mx-auto px-6 py-20">
@@ -302,72 +218,7 @@ export function StoryIntake() {
           </div>
         )}
 
-        {run && (
-          <div className="mt-8 rounded-2xl border border-white/10 bg-card/40 backdrop-blur p-6 md:p-8 space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="font-mono text-xs tracking-widest text-agent-cyan">
-                RUN · {run.run_id}
-              </div>
-              <div className="font-mono text-xs px-2 py-1 rounded border border-white/15 bg-background/40">
-                {run.status || "…"}
-              </div>
-            </div>
-
-            {run.steps && run.steps.length > 0 && (
-              <ol className="space-y-2">
-                {run.steps.map((s, i) => (
-                  <li
-                    key={i}
-                    className="flex items-start gap-3 rounded-md border border-white/10 bg-background/30 p-3 font-mono text-xs"
-                  >
-                    <span className="text-muted-foreground">{String(i + 1).padStart(2, "0")}</span>
-                    <div className="flex-1">
-                      <div className="text-foreground">{s.name ?? "step"}</div>
-                      {s.message && <div className="text-muted-foreground mt-1">{s.message}</div>}
-                    </div>
-                    {(s.state ?? s.status) && (
-                      <span className="text-agent-cyan uppercase">{s.state ?? s.status}</span>
-                    )}
-                  </li>
-                ))}
-              </ol>
-            )}
-
-            {(awaitingConfirm || awaitingApprove) && (
-              <div className="flex flex-wrap items-center gap-3 pt-2">
-                {awaitingConfirm && (
-                  <Button
-                    onClick={() => handleAction("confirm")}
-                    disabled={acting !== null}
-                    className="border border-white/15"
-                  >
-                    {acting === "confirm" ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <CheckCircle2 className="h-4 w-4" />
-                    )}
-                    Confirm
-                  </Button>
-                )}
-                {awaitingApprove && (
-                  <Button
-                    onClick={() => handleAction("approve")}
-                    disabled={acting !== null}
-                    className="border border-white/15"
-                    style={{ background: "var(--gradient-agent)" }}
-                  >
-                    {acting === "approve" ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <ShieldCheck className="h-4 w-4" />
-                    )}
-                    Approve PR
-                  </Button>
-                )}
-              </div>
-            )}
-          </div>
-        )}
+        {run && <RunStatus key={run.run_id} initialRun={run} onClose={() => setRun(null)} />}
       </div>
     </section>
   );
