@@ -185,13 +185,14 @@ export function RunStatus({
     if (!isComplete && !run.result_preview) return;
     let cancelled = false;
     (async () => {
-      const [results, audit] = await Promise.all([
-        headOk(`${API_BASE}/runs/${run.run_id}/report/results.pdf`),
-        headOk(`${API_BASE}/runs/${run.run_id}/report.pdf`),
-      ]);
-      if (!cancelled) {
-        setHasResultsPdf(results);
-        setHasAuditPdf(audit);
+      const audit = await headOk(`${API_BASE}/runs/${run.run_id}/report.pdf`);
+      if (cancelled) return;
+      setHasAuditPdf(audit);
+      if (run.result_preview) {
+        const results = await headOk(`${API_BASE}/runs/${run.run_id}/report/results.pdf`);
+        if (!cancelled) setHasResultsPdf(results);
+      } else {
+        setHasResultsPdf(false);
       }
     })();
     return () => {
