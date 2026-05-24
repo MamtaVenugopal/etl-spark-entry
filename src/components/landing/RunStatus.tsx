@@ -580,6 +580,55 @@ export function RunStatus({
         <TabsContent value="audit" className="space-y-4">
           <AgentsList agents={run.report?.agents ?? []} />
 
+          {(run.report?.data_validation ?? []).length > 0 && (
+            <div>
+              <div className="font-mono text-xs tracking-widest text-muted-foreground mb-2">
+                DATA VALIDATION
+              </div>
+              <ul className="space-y-2">
+                {run.report!.data_validation!.map((c, i) => (
+                  <li key={i} className="text-xs flex items-start gap-2">
+                    {c.passed ? (
+                      <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400 mt-0.5" />
+                    ) : (
+                      <XCircle className="h-3.5 w-3.5 text-red-400 mt-0.5" />
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <div className="font-mono">{c.name}</div>
+                      {c.sql && (
+                        <pre className="text-muted-foreground whitespace-pre-wrap font-mono mt-1">
+                          {c.sql}
+                        </pre>
+                      )}
+                      {c.message && (
+                        <div className="text-muted-foreground">{c.message}</div>
+                      )}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {typeof run.report?.profile_report?.row_count === "number" && (
+            <div className="text-xs font-mono text-muted-foreground">
+              profile rows: {run.report.profile_report.row_count}
+              {isComplete && hasProfileHtml && (
+                <>
+                  {" · "}
+                  <a
+                    href={`${API_BASE}/runs/${run.run_id}/profile.html`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-agent-cyan hover:underline"
+                  >
+                    open profile.html
+                  </a>
+                </>
+              )}
+            </div>
+          )}
+
           {(run.report?.artifacts?.generated_files ?? []).length > 0 && (
             <div>
               <div className="font-mono text-xs tracking-widest text-muted-foreground mb-2">
