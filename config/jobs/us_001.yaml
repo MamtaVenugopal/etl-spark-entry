@@ -1,0 +1,8 @@
+story_id: US-001
+target_table: gold.monthly_revenue_summary
+data_platform: aws
+storage_format: parquet
+spark_job_path: src/jobs/monthly_revenue_summary.py
+airflow_dag_path: dags/us_001_monthly_revenue_dag.py
+s3_scripts_prefix: scripts
+emr_app_name: US001_monthly_revenue_summary
