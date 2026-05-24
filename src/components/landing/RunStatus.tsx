@@ -138,15 +138,18 @@ async function headOk(url: string): Promise<boolean> {
 
 export function RunStatus({
   initialRun,
+  autoGates = false,
   onClose,
 }: {
   initialRun: RunState;
+  autoGates?: boolean;
   onClose?: () => void;
 }) {
   const [run, setRun] = useState<RunState>(initialRun);
   const [acting, setActing] = useState<"confirm" | "approve" | null>(null);
   const [hasResultsPdf, setHasResultsPdf] = useState<boolean>(false);
   const [hasAuditPdf, setHasAuditPdf] = useState<boolean>(false);
+  const [hasProfileHtml, setHasProfileHtml] = useState<boolean>(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const status = (run.status || "").toUpperCase();
@@ -154,13 +157,15 @@ export function RunStatus({
   const awaitingConfirm = status === "AWAITING_CONFIRMATION";
   const awaitingApprove = status === "AWAITING_PR_APPROVAL";
   const isFailed = status === "FAILED" || status === "ERROR";
-  const gate1Auto = Boolean(run.gate_1_auto || run.gate_1_confirmed);
-  const gate2Auto = Boolean(run.gate_2_auto || run.gate_2_approved || run.outputs?.pr_merged);
-  // Poll until terminal (COMPLETE/FAILED); keep polling through awaiting gates
-  // so auto-approvals from the backend are picked up.
+  const gate1Auto = Boolean(autoGates || run.gate_1_auto || run.gate_1_confirmed);
+  const gate2Auto = Boolean(autoGates || run.gate_2_auto || run.gate_2_approved || run.outputs?.pr_merged);
+  // Poll until terminal (COMPLETE/FAILED) or gates awaiting manual input.
   const pauseStatuses = useMemo(
-    () => ["COMPLETE", "COMPLETED", "FAILED", "ERROR"],
-    [],
+    () =>
+      autoGates
+        ? ["COMPLETE", "COMPLETED", "FAILED", "ERROR"]
+        : ["COMPLETE", "COMPLETED", "FAILED", "ERROR", "AWAITING_CONFIRMATION", "AWAITING_PR_APPROVAL"],
+    [autoGates],
   );
 
   useEffect(() => {
