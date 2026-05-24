@@ -4,9 +4,7 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
-_JOB = ROOT / "src" / "jobs" / "monthly_revenue_summary.py"
-_PIPELINE = ROOT / "src" / "pipelines" / "gold" / "monthly_revenue_summary.py"
-PIPELINE = _JOB if _JOB.exists() else _PIPELINE
+PIPELINE = ROOT / "src" / "pipelines" / "gold" / "monthly_revenue_summary.py"
 
 REQUIRED_TABLES = [
     "olist_orders_raw",
@@ -34,12 +32,7 @@ def test_pipeline_references_bronze_sources():
 def test_pipeline_writes_gold_target():
     text = PIPELINE.read_text(encoding="utf-8")
     assert "monthly_revenue_summary" in text
-    assert (
-        "parquet" in text.lower()
-        or "_gold_path" in text
-        or "saveAsTable" in text
-        or "delta" in text.lower()
-    )
+    assert "delta" in text.lower() or "saveAsTable" in text
 
 
 def test_pipeline_filters_delivered():
