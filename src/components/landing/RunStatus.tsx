@@ -62,12 +62,20 @@ type RunReport = {
   };
   agents?: AgentReport[];
   artifacts?: { generated_files?: string[] };
+  data_validation?: Array<{ name?: string; sql?: string; passed?: boolean; message?: string }>;
+  profile_report?: { row_count?: number } & Record<string, unknown>;
+  pipeline_passed?: boolean;
 };
 
 type RunOutputs = {
   pr_url?: string;
   pr_merged?: boolean;
   pr_merge_message?: string;
+  pr_branch_delete_message?: string;
+  audit_s3_uri?: string;
+  audit_table?: string;
+  ydata_profile_s3_uri?: string;
+  profile_report?: { row_count?: number };
 };
 
 type ResultPreview = {
@@ -85,15 +93,21 @@ export type RunState = {
   gate_1_confirmed?: boolean;
   gate_2_auto?: boolean;
   gate_2_approved?: boolean;
-  outputs?: RunOutputs & {
-    pr_branch_delete_message?: string;
-  };
+  outputs?: RunOutputs;
   report?: RunReport;
   result_preview?: ResultPreview;
   jira_sw_key?: string;
+  error?: string;
 };
 
-const PIPELINE_STEPS = ["task_breakdown", "coding", "tests", "pr", "deploy"] as const;
+const PIPELINE_STEPS = [
+  "task_breakdown",
+  "coding",
+  "pr",
+  "execute",
+  "profile",
+  "deploy",
+] as const;
 
 function stepIcon(state: string | undefined) {
   switch ((state || "").toLowerCase()) {
@@ -124,15 +138,18 @@ async function headOk(url: string): Promise<boolean> {
 
 export function RunStatus({
   initialRun,
+  autoGates = false,
   onClose,
 }: {
   initialRun: RunState;
+  autoGates?: boolean;
   onClose?: () => void;
 }) {
   const [run, setRun] = useState<RunState>(initialRun);
   const [acting, setActing] = useState<"confirm" | "approve" | null>(null);
   const [hasResultsPdf, setHasResultsPdf] = useState<boolean>(false);
   const [hasAuditPdf, setHasAuditPdf] = useState<boolean>(false);
+  const [hasProfileHtml, setHasProfileHtml] = useState<boolean>(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const status = (run.status || "").toUpperCase();
@@ -140,13 +157,15 @@ export function RunStatus({
   const awaitingConfirm = status === "AWAITING_CONFIRMATION";
   const awaitingApprove = status === "AWAITING_PR_APPROVAL";
   const isFailed = status === "FAILED" || status === "ERROR";
-  const gate1Auto = Boolean(run.gate_1_auto || run.gate_1_confirmed);
-  const gate2Auto = Boolean(run.gate_2_auto || run.gate_2_approved || run.outputs?.pr_merged);
-  // Poll until terminal (COMPLETE/FAILED); keep polling through awaiting gates
-  // so auto-approvals from the backend are picked up.
+  const gate1Auto = Boolean(autoGates || run.gate_1_auto || run.gate_1_confirmed);
+  const gate2Auto = Boolean(autoGates || run.gate_2_auto || run.gate_2_approved || run.outputs?.pr_merged);
+  // Poll until terminal (COMPLETE/FAILED) or gates awaiting manual input.
   const pauseStatuses = useMemo(
-    () => ["COMPLETE", "COMPLETED", "FAILED", "ERROR"],
-    [],
+    () =>
+      autoGates
+        ? ["COMPLETE", "COMPLETED", "FAILED", "ERROR"]
+        : ["COMPLETE", "COMPLETED", "FAILED", "ERROR", "AWAITING_CONFIRMATION", "AWAITING_PR_APPROVAL"],
+    [autoGates],
   );
 
   useEffect(() => {
@@ -179,15 +198,19 @@ export function RunStatus({
     };
   }, [run.run_id, status, pauseStatuses]);
 
-  // Probe PDFs once complete
+  // Probe artifacts once complete
   useEffect(() => {
     if (!API_BASE) return;
     if (!isComplete && !run.result_preview) return;
     let cancelled = false;
     (async () => {
-      const audit = await headOk(`${API_BASE}/runs/${run.run_id}/report.pdf`);
+      const [audit, profile] = await Promise.all([
+        headOk(`${API_BASE}/runs/${run.run_id}/report.pdf`),
+        headOk(`${API_BASE}/runs/${run.run_id}/profile.html`),
+      ]);
       if (cancelled) return;
       setHasAuditPdf(audit);
+      setHasProfileHtml(profile);
       if (run.result_preview) {
         const results = await headOk(`${API_BASE}/runs/${run.run_id}/report/results.pdf`);
         if (!cancelled) setHasResultsPdf(results);
@@ -270,11 +293,23 @@ export function RunStatus({
         </div>
       </div>
 
+      {isFailed && run.error && (
+        <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-4 space-y-1">
+          <div className="flex items-center gap-2 text-red-300">
+            <XCircle className="h-5 w-5" />
+            <span className="font-semibold">Run failed</span>
+          </div>
+          <pre className="text-xs text-red-200/90 whitespace-pre-wrap font-mono">{run.error}</pre>
+        </div>
+      )}
+
       {isComplete && (
         <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-4 space-y-3">
           <div className="flex items-center gap-2 text-emerald-300">
             <CheckCircle2 className="h-5 w-5" />
-            <span className="font-semibold">Run complete</span>
+            <span className="font-semibold">
+              {run.report?.pipeline_passed === false ? "Run complete (pipeline checks failed)" : "Run complete"}
+            </span>
           </div>
           <div className="flex flex-wrap items-center gap-3 text-sm">
             {run.jira_sw_key && (
@@ -292,6 +327,11 @@ export function RunStatus({
                 <ExternalLink className="h-3.5 w-3.5" /> Pull Request
               </a>
             )}
+            {typeof (run.outputs?.profile_report?.row_count ?? run.report?.profile_report?.row_count) === "number" && (
+              <Badge variant="outline" className="border-emerald-500/40 text-emerald-200 font-mono">
+                rows: {run.outputs?.profile_report?.row_count ?? run.report?.profile_report?.row_count}
+              </Badge>
+            )}
           </div>
           {run.outputs?.pr_merge_message && (
             <p className="text-xs text-muted-foreground">{run.outputs.pr_merge_message}</p>
@@ -299,16 +339,18 @@ export function RunStatus({
           {run.outputs?.pr_branch_delete_message && (
             <p className="text-xs text-muted-foreground">{run.outputs.pr_branch_delete_message}</p>
           )}
+          {(run.outputs?.audit_s3_uri || run.outputs?.audit_table) && (
+            <div className="text-xs text-muted-foreground space-y-0.5 font-mono">
+              {run.outputs?.audit_table && <div>audit table: {run.outputs.audit_table}</div>}
+              {run.outputs?.audit_s3_uri && <div>audit s3: {run.outputs.audit_s3_uri}</div>}
+            </div>
+          )}
+          {run.outputs?.ydata_profile_s3_uri && (
+            <div className="text-xs font-mono text-muted-foreground">
+              YData profile s3: {run.outputs.ydata_profile_s3_uri}
+            </div>
+          )}
           <div className="flex flex-wrap items-center gap-2">
-            {hasResultsPdf && (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => downloadPdf(`/runs/${run.run_id}/report/results.pdf`)}
-              >
-                <Download className="h-4 w-4" /> Results PDF
-              </Button>
-            )}
             {hasAuditPdf && (
               <Button
                 size="sm"
@@ -316,6 +358,24 @@ export function RunStatus({
                 onClick={() => downloadPdf(`/runs/${run.run_id}/report.pdf`)}
               >
                 <Download className="h-4 w-4" /> Audit PDF
+              </Button>
+            )}
+            {hasProfileHtml && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => downloadPdf(`/runs/${run.run_id}/profile.html`)}
+              >
+                <ExternalLink className="h-4 w-4" /> YData profile (HTML)
+              </Button>
+            )}
+            {hasResultsPdf && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => downloadPdf(`/runs/${run.run_id}/report/results.pdf`)}
+              >
+                <Download className="h-4 w-4" /> Results PDF
               </Button>
             )}
           </div>
@@ -519,6 +579,55 @@ export function RunStatus({
 
         <TabsContent value="audit" className="space-y-4">
           <AgentsList agents={run.report?.agents ?? []} />
+
+          {(run.report?.data_validation ?? []).length > 0 && (
+            <div>
+              <div className="font-mono text-xs tracking-widest text-muted-foreground mb-2">
+                DATA VALIDATION
+              </div>
+              <ul className="space-y-2">
+                {run.report!.data_validation!.map((c, i) => (
+                  <li key={i} className="text-xs flex items-start gap-2">
+                    {c.passed ? (
+                      <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400 mt-0.5" />
+                    ) : (
+                      <XCircle className="h-3.5 w-3.5 text-red-400 mt-0.5" />
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <div className="font-mono">{c.name}</div>
+                      {c.sql && (
+                        <pre className="text-muted-foreground whitespace-pre-wrap font-mono mt-1">
+                          {c.sql}
+                        </pre>
+                      )}
+                      {c.message && (
+                        <div className="text-muted-foreground">{c.message}</div>
+                      )}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {typeof run.report?.profile_report?.row_count === "number" && (
+            <div className="text-xs font-mono text-muted-foreground">
+              profile rows: {run.report.profile_report.row_count}
+              {isComplete && hasProfileHtml && (
+                <>
+                  {" · "}
+                  <a
+                    href={`${API_BASE}/runs/${run.run_id}/profile.html`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-agent-cyan hover:underline"
+                  >
+                    open profile.html
+                  </a>
+                </>
+              )}
+            </div>
+          )}
 
           {(run.report?.artifacts?.generated_files ?? []).length > 0 && (
             <div>
