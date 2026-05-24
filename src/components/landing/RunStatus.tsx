@@ -293,11 +293,23 @@ export function RunStatus({
         </div>
       </div>
 
+      {isFailed && run.error && (
+        <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-4 space-y-1">
+          <div className="flex items-center gap-2 text-red-300">
+            <XCircle className="h-5 w-5" />
+            <span className="font-semibold">Run failed</span>
+          </div>
+          <pre className="text-xs text-red-200/90 whitespace-pre-wrap font-mono">{run.error}</pre>
+        </div>
+      )}
+
       {isComplete && (
         <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-4 space-y-3">
           <div className="flex items-center gap-2 text-emerald-300">
             <CheckCircle2 className="h-5 w-5" />
-            <span className="font-semibold">Run complete</span>
+            <span className="font-semibold">
+              {run.report?.pipeline_passed === false ? "Run complete (pipeline checks failed)" : "Run complete"}
+            </span>
           </div>
           <div className="flex flex-wrap items-center gap-3 text-sm">
             {run.jira_sw_key && (
@@ -315,6 +327,11 @@ export function RunStatus({
                 <ExternalLink className="h-3.5 w-3.5" /> Pull Request
               </a>
             )}
+            {typeof (run.outputs?.profile_report?.row_count ?? run.report?.profile_report?.row_count) === "number" && (
+              <Badge variant="outline" className="border-emerald-500/40 text-emerald-200 font-mono">
+                rows: {run.outputs?.profile_report?.row_count ?? run.report?.profile_report?.row_count}
+              </Badge>
+            )}
           </div>
           {run.outputs?.pr_merge_message && (
             <p className="text-xs text-muted-foreground">{run.outputs.pr_merge_message}</p>
@@ -322,16 +339,18 @@ export function RunStatus({
           {run.outputs?.pr_branch_delete_message && (
             <p className="text-xs text-muted-foreground">{run.outputs.pr_branch_delete_message}</p>
           )}
+          {(run.outputs?.audit_s3_uri || run.outputs?.audit_table) && (
+            <div className="text-xs text-muted-foreground space-y-0.5 font-mono">
+              {run.outputs?.audit_table && <div>audit table: {run.outputs.audit_table}</div>}
+              {run.outputs?.audit_s3_uri && <div>audit s3: {run.outputs.audit_s3_uri}</div>}
+            </div>
+          )}
+          {run.outputs?.ydata_profile_s3_uri && (
+            <div className="text-xs font-mono text-muted-foreground">
+              YData profile s3: {run.outputs.ydata_profile_s3_uri}
+            </div>
+          )}
           <div className="flex flex-wrap items-center gap-2">
-            {hasResultsPdf && (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => downloadPdf(`/runs/${run.run_id}/report/results.pdf`)}
-              >
-                <Download className="h-4 w-4" /> Results PDF
-              </Button>
-            )}
             {hasAuditPdf && (
               <Button
                 size="sm"
@@ -339,6 +358,24 @@ export function RunStatus({
                 onClick={() => downloadPdf(`/runs/${run.run_id}/report.pdf`)}
               >
                 <Download className="h-4 w-4" /> Audit PDF
+              </Button>
+            )}
+            {hasProfileHtml && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => downloadPdf(`/runs/${run.run_id}/profile.html`)}
+              >
+                <ExternalLink className="h-4 w-4" /> YData profile (HTML)
+              </Button>
+            )}
+            {hasResultsPdf && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => downloadPdf(`/runs/${run.run_id}/report/results.pdf`)}
+              >
+                <Download className="h-4 w-4" /> Results PDF
               </Button>
             )}
           </div>
