@@ -235,7 +235,7 @@ export function StoryIntake() {
           </div>
         )}
 
-        {run && <RunStatus key={run.run_id} initialRun={run} onClose={() => setRun(null)} />}
+        {run && <RunStatus key={run.run_id} initialRun={run} autoGates={autoGates} onClose={() => setRun(null)} />}
       </div>
     </section>
   );
