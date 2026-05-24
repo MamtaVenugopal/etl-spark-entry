@@ -198,15 +198,19 @@ export function RunStatus({
     };
   }, [run.run_id, status, pauseStatuses]);
 
-  // Probe PDFs once complete
+  // Probe artifacts once complete
   useEffect(() => {
     if (!API_BASE) return;
     if (!isComplete && !run.result_preview) return;
     let cancelled = false;
     (async () => {
-      const audit = await headOk(`${API_BASE}/runs/${run.run_id}/report.pdf`);
+      const [audit, profile] = await Promise.all([
+        headOk(`${API_BASE}/runs/${run.run_id}/report.pdf`),
+        headOk(`${API_BASE}/runs/${run.run_id}/profile.html`),
+      ]);
       if (cancelled) return;
       setHasAuditPdf(audit);
+      setHasProfileHtml(profile);
       if (run.result_preview) {
         const results = await headOk(`${API_BASE}/runs/${run.run_id}/report/results.pdf`);
         if (!cancelled) setHasResultsPdf(results);
