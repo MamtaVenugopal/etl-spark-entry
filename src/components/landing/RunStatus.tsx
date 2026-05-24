@@ -62,12 +62,20 @@ type RunReport = {
   };
   agents?: AgentReport[];
   artifacts?: { generated_files?: string[] };
+  data_validation?: Array<{ name?: string; sql?: string; passed?: boolean; message?: string }>;
+  profile_report?: { row_count?: number } & Record<string, unknown>;
+  pipeline_passed?: boolean;
 };
 
 type RunOutputs = {
   pr_url?: string;
   pr_merged?: boolean;
   pr_merge_message?: string;
+  pr_branch_delete_message?: string;
+  audit_s3_uri?: string;
+  audit_table?: string;
+  ydata_profile_s3_uri?: string;
+  profile_report?: { row_count?: number };
 };
 
 type ResultPreview = {
@@ -85,15 +93,21 @@ export type RunState = {
   gate_1_confirmed?: boolean;
   gate_2_auto?: boolean;
   gate_2_approved?: boolean;
-  outputs?: RunOutputs & {
-    pr_branch_delete_message?: string;
-  };
+  outputs?: RunOutputs;
   report?: RunReport;
   result_preview?: ResultPreview;
   jira_sw_key?: string;
+  error?: string;
 };
 
-const PIPELINE_STEPS = ["task_breakdown", "coding", "tests", "pr", "deploy"] as const;
+const PIPELINE_STEPS = [
+  "task_breakdown",
+  "coding",
+  "pr",
+  "execute",
+  "profile",
+  "deploy",
+] as const;
 
 function stepIcon(state: string | undefined) {
   switch ((state || "").toLowerCase()) {
