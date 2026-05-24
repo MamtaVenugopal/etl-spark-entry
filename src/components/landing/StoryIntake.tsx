@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { refineEtlStory } from "@/lib/refine-story.functions";
 import type { EtlStory } from "@/lib/etl-story.schema";
@@ -15,6 +15,23 @@ const PLACEHOLDER = `e.g. We need to ingest daily Salesforce opportunity data in
 const API_BASE = import.meta.env.VITE_API_BASE_URL as string | undefined;
 
 export function StoryIntake() {
+  const [autoGates, setAutoGates] = useState(false);
+
+  useEffect(() => {
+    if (!API_BASE) return;
+    (async () => {
+      try {
+        const r = await fetch(`${API_BASE}/health`, {
+          headers: { "ngrok-skip-browser-warning": "true" },
+        });
+        if (!r.ok) return;
+        const h = (await r.json()) as { auto_gate_1?: boolean; auto_gate_2?: boolean };
+        setAutoGates(Boolean(h.auto_gate_1 && h.auto_gate_2));
+      } catch (e) {
+        console.warn("health check failed", e);
+      }
+    })();
+  }, []);
   const refine = useServerFn(refineEtlStory);
 
   const [raw, setRaw] = useState("");
