@@ -34,7 +34,7 @@ def _read_bronze(spark, table: str):
 
 
 def main():
-    spark = SparkSession.builder.appName('Order Count by Quarter for Product Category').getOrCreate()
+    spark = SparkSession.builder.appName("Order Count by Quarter for Product Category").getOrCreate()
 
     # Read source tables from bronze
     orders_df = _read_bronze(spark, 'olist_orders_raw')
@@ -59,6 +59,7 @@ def main():
     aggregated_df.write.mode('overwrite').parquet(output_path)
 
     spark.stop()
+
 
 if __name__ == '__main__':
     main()
