@@ -10,7 +10,7 @@ default_args = {
 }
 
 # Define the DAG
-with DAG('order_count_by_quarter_product_category_dag', default_args=default_args, schedule_interval='@quarterly', catchup=False) as dag:
+with DAG('order_count_by_quarter_product_category_dag', default_args=default_args, schedule_interval='@daily', catchup=False) as dag:
     # Create EMR cluster
     create_emr_cluster = EmrCreateJobFlowOperator(
         task_id='create_emr_cluster',
