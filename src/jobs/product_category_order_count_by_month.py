@@ -1,0 +1,28 @@
+import os
+from pyspark.sql import SparkSession
+
+# Initialize Spark session
+spark = SparkSession.builder.appName("olist_etl_product_category_order_count_by_month").getOrCreate()
+
+# Environment variables
+S3_DATA_BUCKET = os.getenv('S3_DATA_BUCKET')
+S3_BRONZE_PREFIX = os.getenv('S3_BRONZE_PREFIX')
+S3_GOLD_PREFIX = os.getenv('S3_GOLD_PREFIX')
+
+# Read bronze data
+olist_orders_raw = spark.read.parquet(f's3://{S3_DATA_BUCKET}/{S3_BRONZE_PREFIX}/olist_orders_raw/')
+olist_order_items_raw = spark.read.parquet(f's3://{S3_DATA_BUCKET}/{S3_BRONZE_PREFIX}/olist_order_items_raw/')
+olist_products_raw = spark.read.parquet(f's3://{S3_DATA_BUCKET}/{S3_BRONZE_PREFIX}/olist_products_raw/')
+
+# Join data
+joined_df = olist_orders_raw.join(olist_order_items_raw, "order_id") \
+    .join(olist_products_raw, "product_id")
+
+# Transform data
+result_df = joined_df.groupBy("product_category_name", "month(order_purchase_timestamp)").count()
+
+# Write gold data
+result_df.write.mode("overwrite").parquet(f's3://{S3_DATA_BUCKET}/{S3_GOLD_PREFIX}/product_category_order_count_by_month/')
+
+# Stop Spark session
+spark.stop()
