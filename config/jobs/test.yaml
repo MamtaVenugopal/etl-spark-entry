@@ -1,0 +1,21 @@
+job_name: test
+source_tables:
+  - olist_promotions_raw
+  - olist_loyalty_points_raw
+  - olist_products_raw
+  - olist_order_reviews_raw
+  - olist_geolocation_raw
+  - olist_category_translation_raw
+transformations:
+  - Read olist_promotions_raw from bronze
+  - Read olist_loyalty_points_raw from bronze
+  - Read olist_products_raw from bronze
+  - Read olist_order_reviews_raw from bronze
+  - Read olist_geolocation_raw from bronze
+  - Read olist_category_translation_raw from bronze
+  - Join olist_promotions_raw and olist_products_raw on product_id
+  - Join olist_loyalty_points_raw and olist_geolocation_raw on customer_id
+  - Aggregate data to create a summary for gold.test
+  - Write the aggregated data to gold.test in Parquet format
+acceptance_criteria:
+  - Total records in gold.test > 0

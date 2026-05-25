@@ -1,0 +1,9 @@
+job_name: lovable_tunnel_test
+source_tables:
+  - olist_order_reviews_raw
+  - olist_orders_raw
+target_table: gold.revenue_summary
+transformations:
+  - Read olist_order_reviews_raw from bronze, join with olist_orders_raw on order_id, aggregate to calculate total revenue, write to gold.revenue_summary
+acceptance_criteria:
+  - total_revenue > 0

@@ -1,0 +1,15 @@
+job_name: average_freight_cost_by_category
+source_tables:
+  - olist_order_items_raw
+  - olist_products_raw
+target_table: gold.average_freight_cost_by_category
+transformations:
+  - Read olist_order_items_raw from bronze
+  - Read olist_products_raw from bronze
+  - Join olist_order_items_raw with olist_products_raw on product_id
+  - Group by product_category_name
+  - Calculate average freight cost as avg_freight_cost
+acceptance_criteria:
+  - avg_freight_cost > 0
+  - Results can be filtered by date range and region
+  - Results are presented in a clear and understandable format

@@ -52,9 +52,16 @@ with DAG('order_count_by_quarter_dag', default_args=default_args, schedule_inter
                 'HadoopJarStep': {
                     'Jar': 'command-runner.jar',
                     'Args': [
-                        'spark-submit',
-                        '--deploy-mode', 'cluster',
-                        's3://{{ var.value.S3_DATA_BUCKET }}/src/jobs/order_count_by_quarter.py'
+                        'bash', '-c',
+                        (
+                            'export S3_DATA_BUCKET="{{ var.value.S3_DATA_BUCKET }}"; '
+                            'export S3_BRONZE_PREFIX="bronze/raw"; '
+                            'export S3_GOLD_PREFIX="gold"; '
+                            'export TARGET_TABLE="order_count_by_quarter"; '
+                            'export BRONZE_FORMAT="csv"; '
+                            'spark-submit --deploy-mode cluster '
+                            's3://{{ var.value.S3_DATA_BUCKET }}/src/jobs/order_count_by_quarter.py'
+                        ),
                     ]
                 }
             }
