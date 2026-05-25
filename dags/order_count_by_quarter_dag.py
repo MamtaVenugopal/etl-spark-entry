@@ -1,9 +1,8 @@
 from airflow import DAG
 from airflow.providers.amazon.aws.operators.emr import EmrCreateJobFlowOperator, EmrAddStepsOperator, EmrTerminateJobFlowOperator
 from datetime import datetime
-import os
 
-# Define the default arguments for the DAG
+# Define the default_args dictionary
 default_args = {
     'owner': 'airflow',
     'start_date': datetime(2023, 10, 1),
@@ -13,8 +12,8 @@ default_args = {
 # Define the DAG
 with DAG('order_count_by_quarter_dag', default_args=default_args, schedule_interval='@daily', catchup=False) as dag:
     # Create EMR cluster
-    create_job_flow = EmrCreateJobFlowOperator(
-        task_id='create_job_flow',
+    create_cluster = EmrCreateJobFlowOperator(
+        task_id='create_emr_cluster',
         job_flow_overrides={
             'Name': 'OrderCountByQuarterCluster',
             'ReleaseLabel': 'emr-6.3.0',
@@ -24,42 +23,49 @@ with DAG('order_count_by_quarter_dag', default_args=default_args, schedule_inter
                         'Name': 'Master',
                         'InstanceRole': 'MASTER',
                         'InstanceType': 'm5.xlarge',
-                        'InstanceCount': 1,
+                        'InstanceCount': 1
                     },
                     {
                         'Name': 'Core',
                         'InstanceRole': 'CORE',
                         'InstanceType': 'm5.xlarge',
-                        'InstanceCount': 2,
-                    },
+                        'InstanceCount': 2
+                    }
                 ],
                 'KeepJobFlowAliveWhenNoSteps': False,
-                'TerminationProtected': False,
+                'TerminationProtected': False
             },
-        },
+            'Applications': [
+                {'Name': 'Spark'}
+            ]
+        }
     )
 
     # Add steps to the EMR cluster
     add_steps = EmrAddStepsOperator(
-        task_id='add_steps',
-        job_flow_id=create_job_flow.output,
+        task_id='add_spark_steps',
+        job_flow_id=create_cluster.output,
         steps=[
             {
                 'Name': 'Spark Job',
                 'ActionOnFailure': 'CONTINUE',
                 'HadoopJarStep': {
                     'Jar': 'command-runner.jar',
-                    'Args': ['spark-submit', '--deploy-mode', 'cluster', 's3://'+os.environ['S3_DATA_BUCKET']+'/src/jobs/order_count_by_quarter.py'],
-                },
-            },
-        ],
+                    'Args': [
+                        'spark-submit',
+                        '--deploy-mode', 'cluster',
+                        's3://{{ var.value.S3_DATA_BUCKET }}/src/jobs/order_count_by_quarter.py'
+                    ]
+                }
+            }
+        ]
     )
 
     # Terminate the EMR cluster
-    terminate_job_flow = EmrTerminateJobFlowOperator(
-        task_id='terminate_job_flow',
-        job_flow_id=create_job_flow.output,
+    terminate_cluster = EmrTerminateJobFlowOperator(
+        task_id='terminate_emr_cluster',
+        job_flow_id=create_cluster.output
     )
 
     # Set task dependencies
-    create_job_flow >> add_steps >> terminate_job_flow
+    create_cluster >> add_steps >> terminate_cluster
