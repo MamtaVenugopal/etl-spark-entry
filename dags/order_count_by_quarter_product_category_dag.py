@@ -1,21 +1,16 @@
 from airflow import DAG
 from airflow.providers.amazon.aws.operators.emr import EmrCreateJobFlowOperator, EmrAddStepsOperator, EmrTerminateJobFlowOperator
-from airflow.utils.dates import days_ago
+from datetime import datetime
 
 # Define the default_args dictionary
 default_args = {
     'owner': 'airflow',
-    'start_date': days_ago(1),
+    'start_date': datetime(2023, 10, 1),
+    'retries': 1,
 }
 
 # Define the DAG
-with DAG(
-    dag_id='order_count_by_quarter_product_category_dag',
-    default_args=default_args,
-    schedule_interval='@quarterly',
-    catchup=False,
-) as dag:
-
+with DAG('order_count_by_quarter_product_category_dag', default_args=default_args, schedule_interval='@quarterly', catchup=False) as dag:
     # Create EMR cluster
     create_emr_cluster = EmrCreateJobFlowOperator(
         task_id='create_emr_cluster',
@@ -37,6 +32,8 @@ with DAG(
                         'InstanceCount': 2,
                     },
                 ],
+                'KeepJobFlowAliveWhenNoSteps': False,
+                'TerminationProtected': False,
             },
         },
     )
@@ -47,7 +44,7 @@ with DAG(
         job_flow_id=create_emr_cluster.output,
         steps=[
             {
-                'Name': 'Run Order Count Job',
+                'Name': 'Spark Job',
                 'ActionOnFailure': 'CONTINUE',
                 'HadoopJarStep': {
                     'Jar': 'command-runner.jar',
