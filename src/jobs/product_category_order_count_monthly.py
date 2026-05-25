@@ -8,7 +8,6 @@ spark = SparkSession.builder.appName("olist_etl_product_category_order_count_mon
 S3_DATA_BUCKET = os.getenv('S3_DATA_BUCKET')
 S3_BRONZE_PREFIX = os.getenv('S3_BRONZE_PREFIX')
 S3_GOLD_PREFIX = os.getenv('S3_GOLD_PREFIX')
-TARGET_TABLE = os.getenv('TARGET_TABLE')
 
 # Read bronze data
 olist_orders_raw = spark.read.parquet(f's3://{S3_DATA_BUCKET}/{S3_BRONZE_PREFIX}/olist_orders_raw/')
@@ -23,13 +22,10 @@ joined_df = olist_orders_raw \
     .join(olist_category_translation_raw, "product_category_name")
 
 # Aggregate data
-aggregated_df = joined_df.groupBy(
-    "product_category_name",
-    "month(order_purchase_timestamp)"
-).count()
+result_df = joined_df.groupBy("product_category_name", "month(order_purchase_timestamp)").count()
 
 # Write gold data
-aggregated_df.write.mode("overwrite").parquet(f's3://{S3_DATA_BUCKET}/{S3_GOLD_PREFIX}/product_category_order_count_monthly/')
+result_df.write.mode("overwrite").parquet(f's3://{S3_DATA_BUCKET}/{S3_GOLD_PREFIX}/product_category_order_count_monthly/')
 
 # Stop Spark session
 spark.stop()
