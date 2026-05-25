@@ -789,9 +789,9 @@ export function RunStatus({
                     )}
                     <div className="flex-1 min-w-0">
                       <div className="font-mono">{c.name}</div>
-                      {"sql" in c && c.sql && (
+                      {(c as { sql?: string }).sql && (
                         <pre className="text-muted-foreground whitespace-pre-wrap font-mono mt-1">
-                          {c.sql}
+                          {(c as { sql?: string }).sql}
                         </pre>
                       )}
                       {c.message && (
