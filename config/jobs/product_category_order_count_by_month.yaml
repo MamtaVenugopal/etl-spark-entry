@@ -1,0 +1,16 @@
+job_name: product_category_order_count_by_month
+source_tables:
+  - olist_orders_raw
+  - olist_order_items_raw
+  - olist_products_raw
+target_table: gold.product_category_order_count_by_month
+transformations:
+  - Read olist_orders_raw from bronze
+  - Join olist_orders_raw with olist_order_items_raw on order_id
+  - Join result with olist_products_raw on product_id
+  - Group by product_category_name and month of order_purchase_timestamp
+  - Count orders in each group
+acceptance_criteria:
+  - The report displays product categories as rows and months as columns.
+  - Each cell contains the count of orders for the corresponding product category and month.
+  - The report is up-to-date with the latest sales data.
