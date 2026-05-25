@@ -1,0 +1,24 @@
+story_id: US-001
+title: "Monthly Revenue Summary by Product Category"
+intent: aggregate
+data_platform: aws
+storage_format: parquet
+glue_database_bronze: bronze
+glue_database_gold: gold
+orchestration: mwaa_emr
+source_tables:
+  - olist_orders_raw
+  - olist_order_items_raw
+  - olist_products_raw
+  - olist_category_translation_raw
+target_table: gold.monthly_revenue_summary
+key_transformations:
+  - join orders to items to products to translation
+  - drop nulls on order_id, price, purchase_timestamp
+  - filter to order_status = delivered
+  - derive order_year, order_month
+  - "aggregate: sum(price), count(order_id), avg(price) by year, month, product_category_name_english"
+acceptance_criteria:
+  - total_revenue > 0 always
+  - no nulls in product_category_name_english
+  - order_month between 1 and 12

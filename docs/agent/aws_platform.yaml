@@ -1,0 +1,39 @@
+# Target data platform for autonomous ETL agents (MWAA + EMR + S3 + Glue)
+data_platform: aws
+
+storage:
+  format: parquet
+  compression: snappy
+
+s3:
+  # Override with S3_DATA_BUCKET in .env
+  bucket: "${S3_DATA_BUCKET}"
+  bronze_prefix: "${S3_BRONZE_PREFIX:bronze/raw}"
+  gold_prefix: "${S3_GOLD_PREFIX:gold}"
+  scripts_prefix: scripts
+  profiles_prefix: profiles
+  athena_results_prefix: athena-results
+
+glue:
+  catalog_id: "${AWS_ACCOUNT_ID}"  # optional; default account from boto3
+  database_bronze: "${GLUE_DATABASE_BRONZE:bronze}"
+  database_gold: "${GLUE_DATABASE_GOLD:gold}"
+  table_prefix: olist_
+
+orchestration:
+  engine: mwaa_emr
+  # Agent 2 generates DAGs; Agent 3 triggers via MWAA API
+  emr_release_label: "${EMR_RELEASE_LABEL:emr-7.0.0}"
+
+layers:
+  bronze:
+    description: Olist raw Parquet on S3, registered in Glue bronze database
+    table_naming: olist_{entity}_raw
+  gold:
+    description: Curated Parquet on S3, registered in Glue gold database
+    target_prefix: gold.
+
+spec_conventions:
+  source_tables: short names (olist_orders_raw) — resolved to Glue + S3 at runtime
+  target_table: gold.{table_name}
+  acceptance_checks: athena  # Agent 3 / 4
