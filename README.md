@@ -1,8 +1,13 @@
-# Autonomous ETL Agent
+# ETL Spark Entry (Lovable UI + pipelines)
 
-An end-to-end **user-story → production ETL** pipeline for the Olist e-commerce dataset on **AWS** (S3, Glue, Athena, EMR, MWAA). A **Lovable** frontend submits stories; a **FastAPI** hub enqueues runs; a **Redis worker** executes six steps with rule-based and LLM-assisted agents.
+**Lovable frontend** and **generated ETL artifacts** (PySpark jobs, Airflow DAGs, tests) for the Olist capstone. The **agent backend** (FastAPI, worker, prompts, evaluators) lives in a separate repo.
 
-**Capstone story:** [US-001 Monthly Revenue Summary](config/stories/US001_monthly_revenue.yaml) — see also [README_USERSTORIES.md](README_USERSTORIES.md) for all 20 user stories.
+| Repo | Role |
+|------|------|
+| [**etl-spark-entry**](https://github.com/MamtaVenugopal/etl-spark-entry) (this repo) | Lovable UI, `src/jobs/`, `dags/`, `tests/`, `scripts/` |
+| [**autonomous-etl-agent**](https://github.com/MamtaVenugopal/autonomous-etl-agent) | API, worker, agents, `src/prompts/`, docs, `docker-compose.yml` |
+
+**Capstone story:** [US-001 Monthly Revenue Summary](https://github.com/MamtaVenugopal/autonomous-etl-agent/blob/main/config/stories/US001_monthly_revenue.yaml) — see also [README_USERSTORIES.md](https://github.com/MamtaVenugopal/autonomous-etl-agent/blob/main/README_USERSTORIES.md) for all 20 user stories.
 
 ---
 
@@ -79,17 +84,17 @@ Set `AUTO_GATE_1=true` and `AUTO_GATE_2=true` in `.env` to skip manual gates whe
    (LangChain)                               EMR, optional MWAA)
 ```
 
-| Component | Path | Role |
+| Component | Path (autonomous-etl-agent) | Role |
 |-----------|------|------|
-| API | `src/api/main.py` | HTTP intake, run status, gates, PDF |
-| Worker | `src/worker.py` | Dequeues runs, runs pipeline steps |
-| Run store | `src/api/run_store.py` | Redis-backed run state |
-| Agents | `src/agents/*.py` | Step implementations |
-| Evaluators | `src/evaluators/*.py` | Rule-based quality checks per step |
-| RAG | `src/rag/` | FAISS over `data/olist_schema/schema_chunks.json` |
-| Services | `src/services/` | EMR, Glue, GitHub, Spark sanitize/repair, SQL |
+| API | [`src/api/main.py`](https://github.com/MamtaVenugopal/autonomous-etl-agent/blob/main/src/api/main.py) | HTTP intake, run status, gates, PDF |
+| Worker | [`src/worker.py`](https://github.com/MamtaVenugopal/autonomous-etl-agent/blob/main/src/worker.py) | Dequeues runs, runs pipeline steps |
+| Run store | [`src/api/run_store.py`](https://github.com/MamtaVenugopal/autonomous-etl-agent/blob/main/src/api/run_store.py) | Redis-backed run state |
+| Agents | [`src/agents/`](https://github.com/MamtaVenugopal/autonomous-etl-agent/tree/main/src/agents) | Step implementations |
+| Evaluators | [`src/evaluators/`](https://github.com/MamtaVenugopal/autonomous-etl-agent/tree/main/src/evaluators) | Rule-based quality checks per step |
+| RAG | [`src/rag/`](https://github.com/MamtaVenugopal/autonomous-etl-agent/tree/main/src/rag) | FAISS over schema chunks |
+| Services | [`src/services/`](https://github.com/MamtaVenugopal/autonomous-etl-agent/tree/main/src/services) | EMR, Glue, GitHub, Spark sanitize/repair, SQL |
 
-**Docker Compose:** `redis`, `api`, `worker`, optional `poller` (Databricks legacy).
+**Docker Compose:** [`docker-compose.yml`](https://github.com/MamtaVenugopal/autonomous-etl-agent/blob/main/docker-compose.yml) — `redis`, `api`, `worker`, optional `poller`.
 
 ---
 
@@ -140,8 +145,8 @@ This project does **not** use LangGraph or AutoGen for multi-agent orchestration
 
 | Step | Agent module | Input | Output (run fields) | Prompt file |
 |------|--------------|-------|---------------------|-------------|
-| **task_breakdown** | `task_breakdown_agent.py` | `story_id`, `title`, `content` | `parsed_spec`, `evaluations.task_breakdown` | `src/prompts/task_breakdown.txt` |
-| **coding** | `coding_agent.py` | `ETLSpec` | `generated_files[]`, files on disk | `src/prompts/coding.txt` |
+| **task_breakdown** | [`task_breakdown_agent.py`](https://github.com/MamtaVenugopal/autonomous-etl-agent/blob/main/src/agents/task_breakdown_agent.py) | `story_id`, `title`, `content` | `parsed_spec`, `evaluations.task_breakdown` | [`task_breakdown.txt`](https://github.com/MamtaVenugopal/autonomous-etl-agent/blob/main/src/prompts/task_breakdown.txt) |
+| **coding** | [`coding_agent.py`](https://github.com/MamtaVenugopal/autonomous-etl-agent/blob/main/src/agents/coding_agent.py) | `ETLSpec` | `generated_files[]`, files on disk | [`coding.txt`](https://github.com/MamtaVenugopal/autonomous-etl-agent/blob/main/src/prompts/coding.txt) |
 | **pr** | `pr_agent.py` + `test_agent.py` | `ETLSpec`, `generated_files` | `outputs.pr_url`, `test_files`, `evaluations.tests`, `evaluations.pr` | — |
 | **execute** | `execute_agent.py` | `ETLSpec`, `generated_files` | `data_validation[]`, `outputs.emr_*`, `outputs.execute_log` | — |
 | **profile** | `profile_agent.py` | `ETLSpec` | `outputs.profile_report` | — |
@@ -158,10 +163,10 @@ This project does **not** use LangGraph or AutoGen for multi-agent orchestration
 | **Input** | `story_id`, `title`, `content` (YAML body or Lovable text) |
 | **Output** | `ETLSpec` JSON → stored as `parsed_spec` |
 | **Sources** | `yaml` (valid story file) or `openai` (LLM) |
-| **Prompt** | [`src/prompts/task_breakdown.txt`](src/prompts/task_breakdown.txt) |
-| **Extra context** | AWS platform blurb from `config/aws_platform.yaml`; optional **FAISS RAG** schema chunks |
-| **Evaluation** | `SpecEvaluator` + `SchemaRAGEvaluator`; optional LLM via [`spec_evaluation.txt`](src/prompts/spec_evaluation.txt) |
-| **CLI** | `python scripts/run_task_breakdown.py config/stories/US001_monthly_revenue.yaml` |
+| **Prompt** | [`src/prompts/task_breakdown.txt`](https://github.com/MamtaVenugopal/autonomous-etl-agent/blob/main/src/prompts/task_breakdown.txt) |
+| **Extra context** | AWS platform blurb from [`config/aws_platform.yaml`](https://github.com/MamtaVenugopal/autonomous-etl-agent/blob/main/config/aws_platform.yaml); optional **FAISS RAG** schema chunks |
+| **Evaluation** | `SpecEvaluator` + `SchemaRAGEvaluator`; optional LLM via [`spec_evaluation.txt`](https://github.com/MamtaVenugopal/autonomous-etl-agent/blob/main/src/prompts/spec_evaluation.txt) |
+| **CLI** | `python scripts/run_task_breakdown.py config/stories/US001_monthly_revenue.yaml` (run from [autonomous-etl-agent](https://github.com/MamtaVenugopal/autonomous-etl-agent)) |
 
 **`ETLSpec` fields:** `story_id`, `title`, `intent`, `source_tables`, `target_table`, `transformations`, `acceptance_criteria`, `data_platform`, `storage_format`, `glue_database_bronze`, `glue_database_gold`, `orchestration`.
 
@@ -174,14 +179,14 @@ This project does **not** use LangGraph or AutoGen for multi-agent orchestration
 | | |
 |--|--|
 | **Input** | `ETLSpec` |
-| **Output** | `List[GeneratedFile]` — typically `src/jobs/{table}.py`, `dags/{story}_dag.py`, `config/jobs/{table}.yaml` |
+| **Output** | `List[GeneratedFile]` — typically [`src/jobs/{table}.py`](https://github.com/MamtaVenugopal/etl-spark-entry/tree/main/src/jobs), [`dags/{story}_dag.py`](https://github.com/MamtaVenugopal/etl-spark-entry/tree/main/dags), [`config/jobs/{table}.yaml`](https://github.com/MamtaVenugopal/etl-spark-entry/tree/main/config/jobs) (committed to **this repo**) |
 | **Sources** | `aws_template` / `template` (US-001 only), or `openai` |
-| **Prompt** | [`src/prompts/coding.txt`](src/prompts/coding.txt) |
-| **Post-processing** | `spark_job_sanitize.py`, `spark_job_repair.py` (up to 6 syntax repair passes; **no** silent US-001 fallback) |
+| **Prompt** | [`src/prompts/coding.txt`](https://github.com/MamtaVenugopal/autonomous-etl-agent/blob/main/src/prompts/coding.txt) |
+| **Post-processing** | [`spark_job_sanitize.py`](https://github.com/MamtaVenugopal/autonomous-etl-agent/blob/main/src/services/spark_job_sanitize.py), [`spark_job_repair.py`](https://github.com/MamtaVenugopal/autonomous-etl-agent/blob/main/src/services/spark_job_repair.py) |
 | **Evaluation** | `CodeEvaluator` — syntax, paths, EMR operators in DAG, references to sources/target |
-| **CLI** | `python scripts/run_coding.py config/stories/US001_monthly_revenue.yaml` |
+| **CLI** | `python scripts/run_coding.py config/stories/US001_monthly_revenue.yaml` (autonomous-etl-agent) |
 
-**Templates (US-001):** `src/jobs/templates/US001_monthly_revenue_summary.py`, `dags/templates/US001_monthly_revenue_dag.py`.
+**Templates (US-001):** [`US001_monthly_revenue_summary.py`](https://github.com/MamtaVenugopal/autonomous-etl-agent/blob/main/src/jobs/templates/US001_monthly_revenue_summary.py), [`US001_monthly_revenue_dag.py`](https://github.com/MamtaVenugopal/autonomous-etl-agent/blob/main/dags/templates/US001_monthly_revenue_dag.py).
 
 ---
 
@@ -209,17 +214,20 @@ This project does **not** use LangGraph or AutoGen for multi-agent orchestration
 | **Input** | `ETLSpec`, `generated_files` (Spark job path) |
 | **Output** | `data_validation[]`, `outputs.emr_job_flow_id`, `outputs.emr_script_s3_uri`, `outputs.execute_log`, `outputs.execution_mode` |
 | **Prompt** | None |
-| **Execution** | See [EXECUTE_STRATEGY.md](EXECUTE_STRATEGY.md) — `smart` / local Spark / EMR / validate-only |
-| **EMR** | `src/services/emr_jobs.py` — reuse cluster, `CONTINUE` on failure, terminate only on success |
+| **Execution** | See [EXECUTE_STRATEGY.md](https://github.com/MamtaVenugopal/autonomous-etl-agent/blob/main/EXECUTE_STRATEGY.md) — `smart` / local Spark / EMR / validate-only |
+| **EMR** | [`src/services/emr_jobs.py`](https://github.com/MamtaVenugopal/autonomous-etl-agent/blob/main/src/services/emr_jobs.py) — reuse cluster, `CONTINUE` on failure, terminate only on success |
 | **Evaluation** | `ExecuteEvaluator` |
 | **CLI** | `python scripts/run_execute.py config/stories/US001_monthly_revenue.yaml [--skip-emr]` |
 
 **Manual materialize (recommended for demos):**
 
 ```bash
+# From autonomous-etl-agent clone (local Spark), or use scripts in this repo after pip install pyspark/boto3
 python scripts/run_spark_job.py --job src/jobs/order_count_by_quarter_product_category.py
 python scripts/register_gold_glue.py --table order_count_by_quarter_product_category
 ```
+
+Scripts in this repo: [`register_gold_glue.py`](https://github.com/MamtaVenugopal/etl-spark-entry/blob/main/scripts/register_gold_glue.py), [`fetch_emr_logs.py`](https://github.com/MamtaVenugopal/etl-spark-entry/blob/main/scripts/fetch_emr_logs.py).
 
 ---
 
@@ -254,15 +262,15 @@ python scripts/register_gold_glue.py --table order_count_by_quarter_product_cate
 
 ## Prompts
 
-All LLM prompts live under **`src/prompts/`**:
+All LLM prompts live under **`src/prompts/`** in [**autonomous-etl-agent**](https://github.com/MamtaVenugopal/autonomous-etl-agent/tree/main/src/prompts) (not in this repo):
 
 | File | Used by | Purpose |
 |------|---------|---------|
-| [`task_breakdown.txt`](src/prompts/task_breakdown.txt) | TaskBreakdownAgent | System prompt: story → JSON `ETLSpec` for AWS lakehouse |
-| [`coding.txt`](src/prompts/coding.txt) | CodingAgent | System prompt: generate PySpark + MWAA/EMR DAG |
-| [`spec_evaluation.txt`](src/prompts/spec_evaluation.txt) | EvaluationAgent | Optional LLM critique of spec (`EVAL_USE_LLM=true`) |
+| [`task_breakdown.txt`](https://github.com/MamtaVenugopal/autonomous-etl-agent/blob/main/src/prompts/task_breakdown.txt) | TaskBreakdownAgent | System prompt: story → JSON `ETLSpec` for AWS lakehouse |
+| [`coding.txt`](https://github.com/MamtaVenugopal/autonomous-etl-agent/blob/main/src/prompts/coding.txt) | CodingAgent | System prompt: generate PySpark + MWAA/EMR DAG |
+| [`spec_evaluation.txt`](https://github.com/MamtaVenugopal/autonomous-etl-agent/blob/main/src/prompts/spec_evaluation.txt) | EvaluationAgent | Optional LLM critique of spec (`EVAL_USE_LLM=true`) |
 
-**Coding user message (built in code):** JSON dump of `ETLSpec` + framework hints from `config/framework_config.yaml`.
+**Coding user message (built in code):** JSON dump of `ETLSpec` + framework hints from [`config/framework_config.yaml`](https://github.com/MamtaVenugopal/autonomous-etl-agent/blob/main/config/framework_config.yaml).
 
 **Task breakdown user message (built in code):**
 
@@ -307,7 +315,7 @@ Model: **`AgentEvaluation`** — `agent`, `passed`, `score` (0–1), `checks[]`,
 | **Validate** | Amazon **Athena** (acceptance criteria SQL) |
 | **Catalog** | AWS **Glue** (`scripts/register_gold_glue.py`) |
 
-Config: [`config/aws_platform.yaml`](config/aws_platform.yaml), env vars in [`.env.example`](.env.example).
+Config: [`config/aws_platform.yaml`](https://github.com/MamtaVenugopal/autonomous-etl-agent/blob/main/config/aws_platform.yaml), env vars in [`.env.example`](https://github.com/MamtaVenugopal/autonomous-etl-agent/blob/main/.env.example).
 
 Legacy **Databricks** path still exists (`DATA_PLATFORM=databricks`) for older demos.
 
@@ -325,7 +333,7 @@ Legacy **Databricks** path still exists (`DATA_PLATFORM=databricks`) for older d
 | `GET` | `/runs/{run_id}/profile.html` | YData profile HTML |
 | `POST` | `/schema/refresh` | Refresh FAISS from Glue |
 
-**Lovable:** set `VITE_API_BASE_URL` to ngrok URL → `http://localhost:8000`. See [LOVABLE_E2E.md](LOVABLE_E2E.md).
+**Lovable (this repo):** set `VITE_API_BASE_URL` to ngrok URL → `http://localhost:8000`. See [LOVABLE_E2E.md](https://github.com/MamtaVenugopal/autonomous-etl-agent/blob/main/LOVABLE_E2E.md).
 
 **Run statuses:** `RUNNING`, `AWAITING_CONFIRMATION`, `AWAITING_PR_APPROVAL`, `COMPLETE`, `FAILED`.
 
@@ -333,7 +341,7 @@ Legacy **Databricks** path still exists (`DATA_PLATFORM=databricks`) for older d
 
 ## Configuration (.env)
 
-Copy [`.env.example`](.env.example) to `.env`. Key groups:
+Copy [`.env.example`](https://github.com/MamtaVenugopal/autonomous-etl-agent/blob/main/.env.example) to `.env` in your **autonomous-etl-agent** clone. Key groups:
 
 | Group | Variables |
 |-------|-----------|
@@ -393,7 +401,7 @@ python scripts/run_execute.py config/stories/US001_monthly_revenue.yaml --skip-e
 
 ### 4. Submit from Lovable
 
-Paste YAML from [README_USERSTORIES.md](README_USERSTORIES.md) or submit JSON story; poll `GET /runs/{run_id}`.
+Paste YAML from [README_USERSTORIES.md](https://github.com/MamtaVenugopal/autonomous-etl-agent/blob/main/README_USERSTORIES.md) or submit JSON story; poll `GET /runs/{run_id}`.
 
 ---
 
@@ -401,39 +409,42 @@ Paste YAML from [README_USERSTORIES.md](README_USERSTORIES.md) or submit JSON st
 
 | Document | Topic |
 |----------|--------|
-| [README_USERSTORIES.md](README_USERSTORIES.md) | All 20 user stories + YAML |
-| [AGENT_PIPELINE_OVERVIEW.md](AGENT_PIPELINE_OVERVIEW.md) | Pipeline diagram (shorter) |
-| [LOVABLE_E2E.md](LOVABLE_E2E.md) | ngrok + Lovable wiring |
-| [LOVABLE_REPORT_UI.md](LOVABLE_REPORT_UI.md) | UI binding for reports |
-| [EXECUTE_STRATEGY.md](EXECUTE_STRATEGY.md) | EMR vs local vs validate-only |
-| [EMR_IAM_SETUP.md](EMR_IAM_SETUP.md) | EMR + Glue IAM roles |
-| [ERROR_LOGS.md](ERROR_LOGS.md) | Where to find failures (API, S3, EMR) |
-| [AGENT1_SETUP.md](AGENT1_SETUP.md) | Task breakdown + FAISS |
-| [README_AGENT1_FAISS.md](README_AGENT1_FAISS.md) | Schema RAG deep dive |
-| [AWS_AGENT_PIPELINE.md](AWS_AGENT_PIPELINE.md) | AWS-specific pipeline notes |
+| [README_USERSTORIES.md](https://github.com/MamtaVenugopal/autonomous-etl-agent/blob/main/README_USERSTORIES.md) | All 20 user stories + YAML |
+| [AGENT_PIPELINE_OVERVIEW.md](https://github.com/MamtaVenugopal/autonomous-etl-agent/blob/main/AGENT_PIPELINE_OVERVIEW.md) | Pipeline diagram (shorter) |
+| [LOVABLE_E2E.md](https://github.com/MamtaVenugopal/autonomous-etl-agent/blob/main/LOVABLE_E2E.md) | ngrok + Lovable wiring |
+| [LOVABLE_REPORT_UI.md](https://github.com/MamtaVenugopal/autonomous-etl-agent/blob/main/LOVABLE_REPORT_UI.md) | UI binding for reports |
+| [EXECUTE_STRATEGY.md](https://github.com/MamtaVenugopal/autonomous-etl-agent/blob/main/EXECUTE_STRATEGY.md) | EMR vs local vs validate-only |
+| [EMR_IAM_SETUP.md](https://github.com/MamtaVenugopal/autonomous-etl-agent/blob/main/EMR_IAM_SETUP.md) | EMR + Glue IAM roles |
+| [ERROR_LOGS.md](https://github.com/MamtaVenugopal/autonomous-etl-agent/blob/main/ERROR_LOGS.md) | Where to find failures (API, S3, EMR) |
+| [AGENT1_SETUP.md](https://github.com/MamtaVenugopal/autonomous-etl-agent/blob/main/AGENT1_SETUP.md) | Task breakdown + FAISS |
+| [README_AGENT1_FAISS.md](https://github.com/MamtaVenugopal/autonomous-etl-agent/blob/main/README_AGENT1_FAISS.md) | Schema RAG deep dive |
+| [AWS_AGENT_PIPELINE.md](https://github.com/MamtaVenugopal/autonomous-etl-agent/blob/main/AWS_AGENT_PIPELINE.md) | AWS-specific pipeline notes |
 
 ---
 
-## Project layout (main paths)
+## Project layout
+
+**This repo (etl-spark-entry):**
+
+```text
+etl-spark-entry/
+├── src/
+│   ├── components/landing/   # Lovable UI (StoryIntake, RunStatus)
+│   └── jobs/                 # PySpark gold pipelines (PR targets)
+├── dags/                     # Airflow / EMR DAGs
+├── config/jobs/              # Job YAML metadata
+├── tests/                    # Structural pytest
+└── scripts/                  # register_gold_glue.py, fetch_emr_logs.py
+```
+
+**Backend ([autonomous-etl-agent](https://github.com/MamtaVenugopal/autonomous-etl-agent)):**
 
 ```text
 autonomous-etl-agent/
-├── src/
-│   ├── api/           # FastAPI, RunStore, PDF report
-│   ├── agents/        # Pipeline agents
-│   ├── evaluators/    # Rule-based checks
-│   ├── prompts/       # LLM system prompts
-│   ├── rag/           # FAISS schema retrieval
-│   ├── services/      # EMR, Glue, GitHub, Spark repair, SQL
-│   ├── models/        # Pydantic models
-│   └── worker.py      # Background pipeline runner
-├── config/stories/    # YAML user stories
-├── dags/              # Generated Airflow DAGs
-├── src/jobs/          # Generated PySpark jobs
-├── tests/             # Structural pytest (PR step)
-├── scripts/           # CLI helpers
-├── data/olist_schema/ # schema_chunks.json + FAISS index
-└── docker-compose.yml
+├── src/api/, src/agents/, src/prompts/, src/services/, src/worker.py
+├── config/stories/           # US-001 and story YAML
+├── docker-compose.yml
+└── docs (*.md at repo root)
 ```
 
 ---
