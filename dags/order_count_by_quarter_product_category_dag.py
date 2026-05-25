@@ -10,7 +10,7 @@ default_args = {
 }
 
 # Define the DAG
-with DAG('order_count_by_quarter_product_category_dag', default_args=default_args, schedule_interval='@daily', catchup=False) as dag:
+with DAG('order_count_by_quarter_product_category_dag', default_args=default_args, schedule_interval='@quarterly', catchup=False) as dag:
     # Create EMR cluster
     create_emr_cluster = EmrCreateJobFlowOperator(
         task_id='create_emr_cluster',
@@ -23,22 +23,19 @@ with DAG('order_count_by_quarter_product_category_dag', default_args=default_arg
                         'Name': 'Master',
                         'InstanceRole': 'MASTER',
                         'InstanceType': 'm5.xlarge',
-                        'InstanceCount': 1
+                        'InstanceCount': 1,
                     },
                     {
                         'Name': 'Core',
                         'InstanceRole': 'CORE',
                         'InstanceType': 'm5.xlarge',
-                        'InstanceCount': 2
-                    }
+                        'InstanceCount': 2,
+                    },
                 ],
                 'KeepJobFlowAliveWhenNoSteps': False,
-                'TerminationProtected': False
+                'TerminationProtected': False,
             },
-            'Applications': [
-                {'Name': 'Spark'}
-            ]
-        }
+        },
     )
 
     # Add steps to the EMR cluster
@@ -47,20 +44,24 @@ with DAG('order_count_by_quarter_product_category_dag', default_args=default_arg
         job_flow_id=create_emr_cluster.output,
         steps=[
             {
-                'Name': 'Spark Job',
+                'Name': 'Run Spark Job',
                 'ActionOnFailure': 'CONTINUE',
                 'HadoopJarStep': {
                     'Jar': 'command-runner.jar',
-                    'Args': ['spark-submit', '--deploy-mode', 'cluster', 's3://{{ var.value.S3_DATA_BUCKET }}/src/jobs/order_count_by_quarter_product_category.py']
-                }
-            }
-        ]
+                    'Args': [
+                        'spark-submit',
+                        '--deploy-mode', 'cluster',
+                        's3://{{ var.value.S3_DATA_BUCKET }}/src/jobs/order_count_by_quarter_product_category.py',
+                    ],
+                },
+            },
+        ],
     )
 
     # Terminate the EMR cluster
     terminate_emr_cluster = EmrTerminateJobFlowOperator(
         task_id='terminate_emr_cluster',
-        job_flow_id=create_emr_cluster.output
+        job_flow_id=create_emr_cluster.output,
     )
 
     # Set task dependencies

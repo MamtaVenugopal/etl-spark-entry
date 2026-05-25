@@ -1,4 +1,5 @@
 from pyspark.sql import SparkSession
+from pyspark.sql import functions as F
 from pyspark.sql.functions import col, count, year, quarter
 import os
 BUCKET = os.environ.get("S3_DATA_BUCKET", "olist-ecommerce-raw-2026")
@@ -33,30 +34,31 @@ def _read_bronze(spark, table: str):
 
 
 def main():
-    spark = SparkSession.builder.appName("Order Count by Quarter for Product Category").getOrCreate()
+    spark = SparkSession.builder.appName('Order Count by Quarter for Product Category').getOrCreate()
 
     # Read source tables from bronze
-    orders_df = _read_bronze(spark, "olist_orders_raw")
-    order_items_df = _read_bronze(spark, "olist_order_items_raw")
-    products_df = _read_bronze(spark, "olist_products_raw")
-    category_translation_df = _read_bronze(spark, "olist_category_translation_raw")
+    orders_df = _read_bronze(spark, 'olist_orders_raw')
+    order_items_df = _read_bronze(spark, 'olist_order_items_raw')
+    products_df = _read_bronze(spark, 'olist_products_raw')
+    category_translation_df = _read_bronze(spark, 'olist_category_translation_raw')
 
     # Join dataframes
-    joined_df = orders_df.join(order_items_df, "order_id")
-    joined_df = joined_df.join(products_df, "product_id")
-    joined_df = joined_df.join(category_translation_df, "product_category_name")
+    joined_df = orders_df.join(order_items_df, 'order_id')
+    joined_df = joined_df.join(products_df, 'product_id')
+    joined_df = joined_df.join(category_translation_df.alias("t"), "product_category_name", "left")
 
-    # Transformations
-    result_df = (joined_df
-        .withColumn("Quarter", quarter(col("order_purchase_timestamp")))
-        .groupBy("Quarter", "product_category_name")
-        .agg(count("order_id").alias("order_count")))
-    
-    # Write result to gold
+    # Aggregate order counts by quarter and product category
+    aggregated_df = joined_df.groupBy(year(col('order_date')).alias('year'), quarter(col('order_date')).alias('quarter'), 'product_category_name')
+    aggregated_df = aggregated_df.agg(count('order_id').alias('order_count'))
+
+    # Write the aggregated data to gold
     gold_bucket = os.environ['S3_DATA_BUCKET']
     gold_prefix = os.environ['S3_GOLD_PREFIX']
     target_table = os.environ['TARGET_TABLE']
-    result_df.write.mode("overwrite").parquet(f"s3://{BUCKET}/{GOLD_PREFIX}/{TARGET_TABLE}/")
+    output_path = f"s3://{BUCKET}/{GOLD_PREFIX}/{TARGET_TABLE}/"
+    aggregated_df.write.mode('overwrite').parquet(output_path)
 
-if __name__ == "__main__":
+    spark.stop()
+
+if __name__ == '__main__':
     main()
