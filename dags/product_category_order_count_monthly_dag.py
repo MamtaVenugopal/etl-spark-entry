@@ -2,7 +2,7 @@ from airflow import DAG
 from airflow.providers.amazon.aws.operators.emr import EmrCreateJobFlowOperator, EmrAddStepsOperator, EmrTerminateJobFlowOperator
 from airflow.utils.dates import days_ago
 
-# Default arguments for the DAG
+# Define default args
 default_args = {
     'owner': 'airflow',
     'start_date': days_ago(1),
@@ -11,10 +11,10 @@ default_args = {
 # Define the DAG
 with DAG('product_category_order_count_monthly_dag', default_args=default_args, schedule_interval='@monthly') as dag:
     # Create EMR cluster
-    create_emr_cluster = EmrCreateJobFlowOperator(
-        task_id='create_emr_cluster',
+    create_job_flow = EmrCreateJobFlowOperator(
+        task_id='create_job_flow',
         job_flow_overrides={
-            'Name': 'ProductCategoryOrderCountMonthlyCluster',
+            'Name': 'ProductCategoryOrderCountMonthly',
             'ReleaseLabel': 'emr-6.3.0',
             'Instances': {
                 'InstanceGroups': [
@@ -32,6 +32,7 @@ with DAG('product_category_order_count_monthly_dag', default_args=default_args, 
                     },
                 ],
                 'KeepJobFlowAliveWhenNoSteps': False,
+                'TerminationProtected': False,
             },
         },
     )
@@ -39,24 +40,28 @@ with DAG('product_category_order_count_monthly_dag', default_args=default_args, 
     # Add steps to the EMR cluster
     add_steps = EmrAddStepsOperator(
         task_id='add_steps',
-        job_flow_id=create_emr_cluster.output,
+        job_flow_id=create_job_flow.output,
         steps=[
             {
-                'Name': 'Spark job for product category order count',
+                'Name': 'Spark job',
                 'ActionOnFailure': 'CONTINUE',
                 'HadoopJarStep': {
                     'Jar': 'command-runner.jar',
-                    'Args': ['spark-submit', '--deploy-mode', 'cluster', 's3://{{ var.value.S3_DATA_BUCKET }}/src/jobs/product_category_order_count_monthly.py'],
+                    'Args': [
+                        'spark-submit',
+                        '--deploy-mode', 'cluster',
+                        's3://{{ var.value.S3_DATA_BUCKET }}/src/jobs/product_category_order_count_monthly.py',
+                    ],
                 },
             },
         ],
     )
 
     # Terminate the EMR cluster
-    terminate_emr_cluster = EmrTerminateJobFlowOperator(
-        task_id='terminate_emr_cluster',
-        job_flow_id=create_emr_cluster.output,
+    terminate_job_flow = EmrTerminateJobFlowOperator(
+        task_id='terminate_job_flow',
+        job_flow_id=create_job_flow.output,
     )
 
     # Set task dependencies
-    create_emr_cluster >> add_steps >> terminate_emr_cluster
+    create_job_flow >> add_steps >> terminate_job_flow
