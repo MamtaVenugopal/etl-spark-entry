@@ -8,6 +8,7 @@
 | [`docs/agent/`](docs/agent/) | User stories, execute strategy, EMR setup, `.env.example` |
 | [`src/jobs/`](src/jobs/), [`dags/`](dags/), [`config/jobs/`](config/jobs/) | PySpark + Airflow + job YAML (GitHub PR targets) |
 | [`src/components/landing/`](src/components/landing/) | Lovable UI (`StoryIntake`, `RunStatus`) |
+| [`landing/`](landing/) | **Local story intake app** — `/intake` + `/runs/:id` (see [landing/README.md](landing/README.md)) |
 
 **Capstone story:** [US-001 Monthly Revenue Summary](docs/agent/US001_monthly_revenue.yaml) — all 20 stories in [README_USERSTORIES.md](docs/agent/README_USERSTORIES.md).
 
@@ -285,11 +286,17 @@ docker compose up -d redis api worker
 
 ### 2. Lovable UI (this repo)
 
+**Local landing app (recommended for dev):**
+
 ```bash
-cd etl-spark-entry
+cd landing
+cp .env.example .env
 npm install
-VITE_API_BASE_URL=https://YOUR-NGROK.ngrok-free.app npm run dev
+npm run dev
+# → http://localhost:5173/intake
 ```
+
+Or use the hosted Lovable app: [etl-spark-entry.lovable.app](https://etl-spark-entry.lovable.app/#intake) with `VITE_API_BASE_URL` pointing at your ngrok/API.
 
 ### 3. US-001 demo (backend CLI)
 
@@ -312,8 +319,8 @@ Paste YAML from [README_USERSTORIES.md](docs/agent/README_USERSTORIES.md); poll 
 | Document | Topic |
 |----------|--------|
 | [README_USERSTORIES.md](docs/agent/README_USERSTORIES.md) | All 20 user stories + YAML |
-| [TESTING-4-AGENT.md](docs/agent/TESTING-4-AGENT.md) | 4-agent curl + Lovable test checklist |
-| [AGENT_PIPELINE_OVERVIEW.md](docs/agent/AGENT_PIPELINE_OVERVIEW.md) | Pipeline diagram |
+| [landing/README.md](landing/README.md) | Local intake + run status SPA |
+| [docs/agent/TESTING-4-AGENT.md](docs/agent/TESTING-4-AGENT.md) | 4-agent curl + Lovable test checklist |
 | [LOVABLE_E2E.md](docs/agent/LOVABLE_E2E.md) | ngrok + Lovable wiring |
 | [LOVABLE_REPORT_UI.md](docs/agent/LOVABLE_REPORT_UI.md) | UI binding for reports |
 | [EXECUTE_STRATEGY.md](docs/agent/EXECUTE_STRATEGY.md) | EMR vs local vs validate-only |

@@ -1,0 +1,42 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: 222 47% 6%;
+  --card: 222 40% 10%;
+  --muted: 222 30% 18%;
+  --muted-foreground: 215 20% 65%;
+  --agent-cyan: 187 85% 53%;
+  --gradient-agent: linear-gradient(135deg, hsl(187 85% 45%), hsl(260 60% 55%));
+  --shadow-glow-cyan: 0 0 40px hsl(187 85% 53% / 0.15);
+  --shadow-glow: 0 0 24px hsl(260 60% 55% / 0.2);
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: hsl(var(--background));
+  color: hsl(210 40% 96%);
+  font-family: system-ui, -apple-system, sans-serif;
+}
+
+.text-gradient-agent {
+  background: var(--gradient-agent);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.btn-primary {
+  background: var(--gradient-agent);
+  box-shadow: var(--shadow-glow);
+}
+
+.card-glow {
+  box-shadow: var(--shadow-glow-cyan);
+}
+
+.input-field {
+  @apply w-full rounded-lg border border-white/10 bg-background/40 px-3 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-agent-cyan;
+}
