@@ -1,0 +1,23 @@
+job:
+  target_table: gold.yearly_average_revenue_by_category
+  bronze_tables:
+    - olist_orders_raw
+    - olist_order_items_raw
+    - olist_products_raw
+    - olist_category_translation_raw
+  transformations:
+    - Join olist_orders_raw with olist_order_items_raw on order_id
+    - Join the result with olist_products_raw on product_id
+    - Join the result with olist_category_translation_raw on category_id
+    - Filter records to include only completed orders
+    - Group by category_id and year of order_date
+    - Aggregate to calculate average revenue per category per year
+  acceptance_criteria:
+    - SELECT COUNT(DISTINCT order_id) FROM olist_orders_raw WHERE order_status = 'delivered'
+    - SELECT AVG(revenue) FROM gold.yearly_average_revenue_by_category WHERE category_id IS NOT NULL
+    - Ensure that the output contains one row per category per year
+  schema_context: 
+    - TABLE olist_products_raw (Glue bronze, parquet on S3): Product catalog with category and physical attributes.
+    - TABLE olist_order_items_raw (Glue bronze, parquet on S3): Line items per order. Links orders, products, sellers.
+    - TABLE olist_orders_raw (Glue bronze, parquet on S3): Core orders table. One row per order.
+    - TABLE olist_category_translation_raw (Glue bronze, parquet on S3): Maps Portuguese product_category_name to English.
