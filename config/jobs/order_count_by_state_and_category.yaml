@@ -1,23 +1,63 @@
-job_name: order_count_by_state_and_category
-source_tables:
-  - olist_orders_raw
-  - olist_order_items_raw
-  - olist_category_translation_raw
-  - olist_products_raw
-  - olist_customers_raw
-target_table: gold.order_count_by_state_and_category
-transformations:
-  - Read olist_orders_raw from bronze
-  - Read olist_order_items_raw from bronze
-  - Read olist_category_translation_raw from bronze
-  - Read olist_products_raw from bronze
-  - Join olist_orders_raw and olist_order_items_raw on order_id
-  - Join the result with olist_products_raw on product_id
-  - Join the result with olist_category_translation_raw on product_category_name
-  - Join the result with olist_customers_raw on customer_id
-  - Group by state and product_category_name_english
-  - Count the number of orders in each group
-acceptance_criteria:
-  - The report should display state, category, and order count
-  - Each category should have its order count broken down by state
-  - The order counts should be accurate and reflect all orders
+job:
+  target_table: gold.order_count_by_state_and_category
+  bronze_tables:
+    - olist_orders_raw
+    - olist_order_items_raw
+    - olist_category_translation_raw
+    - olist_products_raw
+    - olist_customers_raw
+  transformations:
+    - Read olist_orders_raw from bronze
+    - Join olist_orders_raw with olist_order_items_raw on order_id
+    - Join the result with olist_category_translation_raw on product_category_name
+    - Group by state and product_category_name_english
+    - Count the number of orders in each group
+  acceptance_criteria:
+    - The report should display state, category, and order count
+    - Each category should have its order count broken down by state
+    - The order counts should be accurate and reflect all orders
+  schema_context: |
+    - TABLE olist_order_items_raw (Glue bronze, parquet on S3): Line items per order. Links orders, products, sellers.. S3: s3://olist-etl-demo/bronze/olist_order_items_raw/. Columns: order_id, order_item_id, product_id, seller_id, shipping_limit_date, price, freight_value. Join keys: order_id, product_id, seller_id.
+    - TABLE olist_orders_raw (Glue bronze, parquet on S3): Core orders table. One row per order.. S3: s3://olist-etl-demo/bronze/olist_orders_raw/. Columns: order_id, customer_id, order_status, order_purchase_timestamp, order_approved_at, order_delivered_carrier_date, order_delivered_customer_date, order_estimated_delivery_date. Join keys: order_id, customer_id.
+    - TABLE olist_products_raw (Glue bronze, parquet on S3): Product catalog with category and physical attributes.. S3: s3://olist-etl-demo/bronze/olist_products_raw/. Columns: product_id, product_category_name, product_name_lenght, product_description_lenght, product_photos_qty, product_weight_g, product_length_cm, product_height_cm, product_width_cm. Join keys: product_id, product_category_name.
+    - TABLE olist_category_translation_raw (Glue bronze, parquet on S3): Maps Portuguese product_category_name to English.. S3: s3://olist-etl-demo/bronze/olist_category_translation_raw/. Columns: product_category_name, product_category_name_english. Join keys: product_category_name.
+    - TABLE olist_customers_raw (Glue bronze, parquet on S3): Customer data.. S3: s3://olist-etl-demo/bronze/olist_customers_raw/. Columns: customer_city, customer_id, customer_state, customer_unique_id, customer_zip_code_prefix.
+  source_table_columns:
+    olist_orders_raw:
+      - customer_id
+      - order_approved_at
+      - order_delivered_carrier_date
+      - order_delivered_customer_date
+      - order_estimated_delivery_date
+      - order_id
+      - order_purchase_timestamp
+      - order_status
+    olist_order_items_raw:
+      - freight_value
+      - order_id
+      - order_item_id
+      - price
+      - product_id
+      - seller_id
+      - shipping_limit_date
+    olist_category_translation_raw:
+      - product_category_name
+      - product_category_name_english
+    olist_products_raw:
+      - product_category_name
+      - product_description_lenght
+      - product_height_cm
+      - product_id
+      - product_length_cm
+      - product_name_lenght
+      - product_photos_qty
+      - product_weight_g
+      - product_width_cm
+    olist_customers_raw:
+      - customer_city
+      - customer_id
+      - customer_state
+      - customer_unique_id
+      - customer_zip_code_prefix
+  join_graph_hint: Valid joins: orders->customers(customer_id); orders->order_items(order_id); order_items->products(product_id); products->category_translation(product_category_name); orders->payments/reviews(order_id). 
+  
