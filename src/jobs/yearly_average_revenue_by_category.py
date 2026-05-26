@@ -38,36 +38,35 @@ TARGET_TABLE = os.getenv('TARGET_TABLE')
 
 
 
-def main():
-    spark = SparkSession.builder.appName("Yearly Average Revenue by Product Category").getOrCreate()
-
+def main(spark):
     # Read bronze tables
-    orders = _read_bronze(spark, "olist_orders_raw")
+    orders = _read_bronze(spark, 'olist_orders_raw')
     orders = orders.withColumn("order_purchase_timestamp", F.to_timestamp("order_purchase_timestamp"))
-    items = _read_bronze(spark, "olist_order_items_raw")
-    products = _read_bronze(spark, "olist_products_raw")
-    translation = _read_bronze(spark, "olist_category_translation_raw")
+    items = _read_bronze(spark, 'olist_order_items_raw')
+    products = _read_bronze(spark, 'olist_products_raw')
+    translation = _read_bronze(spark, 'olist_category_translation_raw')
 
     # Join tables
-    df = (orders.alias("o")
-        .join(items.alias("i"), "order_id")
-        .join(products.alias("p"), "product_id")
-        .join(translation.alias("t"), "product_category_name", "left")
-        .filter(col("o.order_status") == 'delivered')
+    result = (orders.alias('o')
+        .join(items.alias('i'), 'order_id')
+        .join(products.alias('p'), 'product_id')
+        .join(translation.alias('t'), 'product_category_name', 'left')
     )
 
-    # Calculate revenue
-    df = df.withColumn("revenue", col("i.price") * (1 - col("i.freight_value")))
+    # Filter completed orders
+    result = result.filter(col('o.order_status') == 'delivered')
 
     # Group by category and year
-    result = (df.groupBy(col("t.product_category_name_english").alias("category_id"),
-        year(col("o.order_purchase_timestamp")).alias("year")
+    result = (result.withColumn('year', year(col('o.order_purchase_timestamp')))
+        .groupBy('t.product_category_name_english', 'year')
+        .agg(avg('i.price').alias('average_revenue'))
     )
-    .agg(avg("revenue").alias("average_revenue")))
 
     # Write gold table
     result.write.mode("overwrite").parquet(f"s3://{BUCKET}/{GOLD_PREFIX}/{TARGET_TABLE}/")
 
 
 if __name__ == '__main__':
-    main()
+    spark = SparkSession.builder.appName('YearlyAverageRevenueByCategory').getOrCreate()
+    main(spark)
+    spark.stop()
