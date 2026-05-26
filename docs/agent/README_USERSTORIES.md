@@ -1,8 +1,16 @@
 # Olist User Stories — UI & Agent 1 Test Catalog
 
 **Dataset:** [Brazilian E-Commerce (Olist)](https://www.kaggle.com/datasets/olistbr/brazilian-ecommerce)  
-**Purpose:** Feed these into the Lovable UI / `POST /stories` to test **Agent 1 (Task Breakdown)** and **Evaluation Agent**.  
+**Purpose:** Feed these into the **local landing app**, **Lovable UI**, or `POST /stories` to test **Agent 1 (Task Breakdown)** and **Evaluation Agent**.  
 **Total stories:** 22 (14 valid + 8 invalid; minimum 6 invalid as required)
+
+| UI | URL | Notes |
+|----|-----|-------|
+| **Local landing** (Cursor dev) | `http://localhost:5173/intake` | [landing/README.md](../../landing/README.md) — refine + structured editor |
+| **Lovable hosted** | [etl-spark-entry.lovable.app/#intake](https://etl-spark-entry.lovable.app/#intake) | Legacy components in `src/components/landing/` |
+| **API** | `POST /stories/refine`, `POST /stories` | [autonomous-etl-agent](https://github.com/MamtaVenugopal/autonomous-etl-agent) on port 8000 |
+
+**GitHub:** [MamtaVenugopal/etl-spark-entry](https://github.com/MamtaVenugopal/etl-spark-entry) · [MamtaVenugopal/autonomous-etl-agent](https://github.com/MamtaVenugopal/autonomous-etl-agent)
 
 ---
 
@@ -42,6 +50,19 @@ Use these names in **valid** stories. In Databricks/Unity Catalog you may use `_
 ---
 
 ## How to submit in the UI
+
+### Local landing (`landing/`)
+
+1. Start backend: `docker compose up -d redis api worker` in `autonomous-etl-agent`
+2. Start UI: `npm run dev` in `landing/`
+3. Open `/intake` → paste free text or YAML → **Refine with AI** (optional) → edit fields → **Ship to Agent**
+4. Run tracker opens in a new tab: `/runs/{runId}` — poll until Agent 4 delivery (table, chart, YData, PDF)
+
+### Lovable hosted
+
+Paste YAML at [etl-spark-entry.lovable.app/#intake](https://etl-spark-entry.lovable.app/#intake). Set `VITE_API_BASE_URL` to your API (ngrok or localhost tunnel).
+
+### API / YAML fields
 
 For each story, use **Ship to Agent** with:
 
