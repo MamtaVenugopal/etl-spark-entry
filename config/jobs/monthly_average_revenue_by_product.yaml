@@ -1,0 +1,16 @@
+job_name: monthly_average_revenue_by_product
+source_tables:
+  - olist_orders_raw
+  - olist_order_items_raw
+target_table: gold.monthly_average_revenue_by_product
+transformations:
+  - Join olist_order_items_raw with olist_orders_raw on olist_order_items_raw.order_id = olist_orders_raw.order_id
+  - Filter orders where olist_orders_raw.order_status = 'delivered'
+  - Aggregate by year and month from olist_orders_raw.order_purchase_timestamp
+  - Calculate total revenue as SUM(olist_order_items_raw.price * olist_order_items_raw.quantity)
+  - Group by product_id and month/year
+acceptance_criteria:
+  - SELECT COUNT(*) FROM gold.monthly_average_revenue_by_product WHERE product_id IS NOT NULL
+  - SELECT AVG(revenue) FROM gold.monthly_average_revenue_by_product WHERE year = 2023 AND month = 1
+  - SELECT COUNT(DISTINCT product_id) FROM gold.monthly_average_revenue_by_product WHERE year = 2023
+  - SELECT SUM(revenue) FROM gold.monthly_average_revenue_by_product WHERE year = 2022
