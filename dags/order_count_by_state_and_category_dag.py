@@ -1,28 +1,21 @@
 from airflow import DAG
 from airflow.providers.amazon.aws.operators.emr import EmrCreateJobFlowOperator, EmrAddStepsOperator, EmrTerminateJobFlowOperator
-from airflow.utils.dates import days_ago
-import os
+from datetime import datetime
 
-# Define the default arguments for the DAG
+# Define the default_args dictionary
 default_args = {
     'owner': 'airflow',
-    'start_date': days_ago(1),
+    'start_date': datetime(2023, 10, 1),
     'retries': 1,
 }
 
 # Define the DAG
-with DAG(
-    dag_id='order_count_by_state_and_category_dag',
-    default_args=default_args,
-    schedule_interval='@daily',
-    catchup=False,
-) as dag:
-
+with DAG('order_count_by_state_and_category_dag', default_args=default_args, schedule_interval='@daily', catchup=False) as dag:
     # Create EMR cluster
-    create_emr_cluster = EmrCreateJobFlowOperator(
-        task_id='create_emr_cluster',
+    create_job_flow = EmrCreateJobFlowOperator(
+        task_id='create_job_flow',
         job_flow_overrides={
-            'Name': 'OrderCountEMRCluster',
+            'Name': 'OrderCountByStateAndCategory',
             'ReleaseLabel': 'emr-6.3.0',
             'Instances': {
                 'InstanceGroups': [
@@ -39,18 +32,16 @@ with DAG(
                         'InstanceCount': 2,
                     },
                 ],
+                'KeepJobFlowAliveWhenNoSteps': True,
+                'TerminationProtected': False,
             },
-            'Applications': [
-                {'Name': 'Spark'},
-            ],
         },
-        aws_conn_id='aws_default',
     )
 
     # Add steps to the EMR cluster
     add_steps = EmrAddStepsOperator(
         task_id='add_steps',
-        job_flow_id=create_emr_cluster.output,
+        job_flow_id=create_job_flow.output,
         steps=[
             {
                 'Name': 'Spark Job',
@@ -68,10 +59,10 @@ with DAG(
     )
 
     # Terminate the EMR cluster
-    terminate_emr_cluster = EmrTerminateJobFlowOperator(
-        task_id='terminate_emr_cluster',
-        job_flow_id=create_emr_cluster.output,
+    terminate_job_flow = EmrTerminateJobFlowOperator(
+        task_id='terminate_job_flow',
+        job_flow_id=create_job_flow.output,
     )
 
     # Set task dependencies
-    create_emr_cluster >> add_steps >> terminate_emr_cluster
+    create_job_flow >> add_steps >> terminate_job_flow
