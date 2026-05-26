@@ -1,0 +1,12 @@
+job_name: order_count_by_seller_city_and_category
+source_tables:
+  - olist_orders_raw
+  - olist_order_items_raw
+  - olist_sellers_raw
+  - olist_category_translation_raw
+  - olist_products_raw
+target_table: gold.order_count_by_seller_city_and_category
+acceptance_criteria:
+  - total_order_count > 0
+  - seller_city is not null
+  - product_category_name is not null
