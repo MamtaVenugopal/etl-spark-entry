@@ -67,6 +67,6 @@ def main(spark):
 
 
 if __name__ == '__main__':
-    spark = SparkSession.builder.appName('YearlyAverageRevenueByCategory').getOrCreate()
+    spark = SparkSession.builder.appName('Yearly Average Revenue by Product Category').getOrCreate()
     main(spark)
     spark.stop()

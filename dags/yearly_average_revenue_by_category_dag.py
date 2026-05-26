@@ -1,20 +1,21 @@
 from airflow import DAG
 from airflow.providers.amazon.aws.operators.emr import EmrCreateJobFlowOperator, EmrAddStepsOperator, EmrTerminateJobFlowOperator
-from airflow.utils.dates import days_ago
+from datetime import datetime
+import os
 
 # Define the default_args dictionary
 default_args = {
     'owner': 'airflow',
-    'start_date': days_ago(1),
+    'start_date': datetime(2023, 10, 1),
 }
 
 # Define the DAG
-with DAG('yearly_average_revenue_by_category_dag', default_args=default_args, schedule_interval='@daily') as dag:
+with DAG('yearly_average_revenue_by_category_dag', default_args=default_args, schedule_interval='@daily', catchup=False) as dag:
     # Create EMR cluster
-    create_cluster = EmrCreateJobFlowOperator(
-        task_id='create_cluster',
+    create_job_flow = EmrCreateJobFlowOperator(
+        task_id='create_job_flow',
         job_flow_overrides={
-            'Name': 'Olist ETL Cluster',
+            'Name': 'Olist ETL',
             'ReleaseLabel': 'emr-6.3.0',
             'Instances': {
                 'InstanceGroups': [
@@ -31,17 +32,16 @@ with DAG('yearly_average_revenue_by_category_dag', default_args=default_args, sc
                         'InstanceCount': 2,
                     },
                 ],
+                'KeepJobFlowAliveWhenNoSteps': False,
+                'TerminationProtected': False,
             },
-            'Applications': [
-                {'Name': 'Spark'},
-            ],
         },
     )
 
-    # Add steps to the cluster
+    # Add steps to the EMR cluster
     add_steps = EmrAddStepsOperator(
         task_id='add_steps',
-        job_flow_id=create_cluster.output,
+        job_flow_id=create_job_flow.output,
         steps=[
             {
                 'Name': 'Spark Job',
@@ -51,18 +51,18 @@ with DAG('yearly_average_revenue_by_category_dag', default_args=default_args, sc
                     'Args': [
                         'spark-submit',
                         '--deploy-mode', 'cluster',
-                        's3://{{ var.value.S3_DATA_BUCKET }}/src/jobs/yearly_average_revenue_by_category.py',
+                        's3://{}/src/jobs/yearly_average_revenue_by_category.py'.format(os.getenv('S3_DATA_BUCKET'))
                     ],
                 },
             },
         ],
     )
 
-    # Terminate the cluster
-    terminate_cluster = EmrTerminateJobFlowOperator(
-        task_id='terminate_cluster',
-        job_flow_id=create_cluster.output,
+    # Terminate the EMR cluster
+    terminate_job_flow = EmrTerminateJobFlowOperator(
+        task_id='terminate_job_flow',
+        job_flow_id=create_job_flow.output,
     )
 
     # Set task dependencies
-    create_cluster >> add_steps >> terminate_cluster
+    create_job_flow >> add_steps >> terminate_job_flow
