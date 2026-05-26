@@ -1,7 +1,5 @@
 # ETL Spark Entry (Lovable UI + pipelines)
 
-[![GitHub](https://img.shields.io/github/repo/MamtaVenugopal/etl-spark-entry)](https://github.com/MamtaVenugopal/etl-spark-entry)
-
 **Lovable frontend** and **generated ETL artifacts** (PySpark jobs, Airflow DAGs, tests) for the Olist capstone. Agent **prompts** and **setup docs** live in this repo so every README link resolves on GitHub. Run the **FastAPI worker** from your local `autonomous-etl-agent` folder (sibling under `ETL_UserStories/`) — see [LOVABLE_E2E](docs/agent/LOVABLE_E2E.md).
 
 | Path in this repo | Contents |

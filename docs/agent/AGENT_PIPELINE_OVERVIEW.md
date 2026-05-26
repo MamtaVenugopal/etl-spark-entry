@@ -35,9 +35,9 @@ task_breakdown → coding → pr → execute → profile → deploy
 | | |
 |--|--|
 | **Input** | `story_id`, `title`, `content` (YAML file body or free text from Lovable) |
-| **Prompt** | [`src/prompts/task_breakdown.txt`](https://github.com/MamtaVenugopal/autonomous-etl-agent/blob/main/src/prompts/task_breakdown.txt) + AWS platform context + optional **FAISS schema RAG** |
+| **Prompt** | [`../../src/prompts/task_breakdown.txt`](../../src/prompts/task_breakdown.txt) + AWS platform context + optional **FAISS schema RAG** |
 | **LLM** | `ChatOpenAI` structured output → `ETLSpec` (if not valid YAML fast-path) |
-| **Evaluation** | `SpecEvaluator` (rules: gold target, allowed tables, policies) + optional LLM review via [`src/prompts/spec_evaluation.txt`](https://github.com/MamtaVenugopal/autonomous-etl-agent/blob/main/src/prompts/spec_evaluation.txt) |
+| **Evaluation** | `SpecEvaluator` (rules: gold target, allowed tables, policies) + optional LLM review via [`../../src/prompts/spec_evaluation.txt`](../../src/prompts/spec_evaluation.txt) |
 | **Output** | `parsed_spec` (JSON), `evaluations.task_breakdown` |
 | **Gate** | `AWAITING_CONFIRMATION` unless `AUTO_GATE_1` |
 
@@ -50,7 +50,7 @@ task_breakdown → coding → pr → execute → profile → deploy
 | | |
 |--|--|
 | **Input** | `ETLSpec` from Agent 1 |
-| **Prompt** | [`src/prompts/coding.txt`](https://github.com/MamtaVenugopal/autonomous-etl-agent/blob/main/src/prompts/coding.txt) (AWS: S3 Parquet, MWAA, EMR) |
+| **Prompt** | [`../../src/prompts/coding.txt`](../../src/prompts/coding.txt) (AWS: S3 Parquet, MWAA, EMR) |
 | **LLM** | Optional; **default for US-001 is templates** (`src/jobs/templates/`, `dags/templates/`) when `DATA_PLATFORM=aws` |
 | **Evaluation** | `CodeEvaluator` — files exist, valid Python, gold path, references sources |
 | **Output** | `generated_files[]` on disk: `src/jobs/*.py`, `dags/*_dag.py`, `config/jobs/*.yaml` |
