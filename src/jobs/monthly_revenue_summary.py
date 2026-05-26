@@ -39,6 +39,7 @@ def _read_bronze(spark: SparkSession, table: str):
 
 def build_monthly_revenue_summary(spark: SparkSession):
     orders = _read_bronze(spark, "olist_orders_raw")
+    orders = orders.withColumn("order_purchase_timestamp", F.to_timestamp("order_purchase_timestamp"))
     items = _read_bronze(spark, "olist_order_items_raw")
     products = _read_bronze(spark, "olist_products_raw")
     translation = _read_bronze(spark, "olist_category_translation_raw")
