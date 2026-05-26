@@ -109,3 +109,25 @@ export async function headArtifact(path: string): Promise<boolean> {
 export function artifactUrl(path: string): string {
   return `${API_BASE}${path}`;
 }
+
+/** Fetch binary artifact with ngrok header (required for Vercel → ngrok). */
+export async function fetchArtifactBlob(path: string): Promise<Blob> {
+  if (!API_BASE) throw new Error("VITE_API_BASE_URL is not configured.");
+  const r = await fetch(`${API_BASE}${path}`, { headers: JSON_HEADERS });
+  if (!r.ok) {
+    throw new Error(`Artifact unavailable (${r.status})`);
+  }
+  return r.blob();
+}
+
+/** Fetch HTML profile (ngrok interstitial breaks raw iframe/src links from Vercel). */
+export async function fetchProfileHtml(runId: string): Promise<string> {
+  if (!API_BASE) throw new Error("VITE_API_BASE_URL is not configured.");
+  const r = await fetch(`${API_BASE}/runs/${runId}/profile.html`, {
+    headers: JSON_HEADERS,
+  });
+  if (!r.ok) {
+    throw new Error(`Profile not available (${r.status})`);
+  }
+  return r.text();
+}

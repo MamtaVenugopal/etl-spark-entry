@@ -1,5 +1,6 @@
-import { CheckCircle2, Download, ExternalLink, XCircle } from "lucide-react";
-import { artifactUrl } from "@/lib/api";
+import { useEffect, useState } from "react";
+import { CheckCircle2, Download, ExternalLink, Loader2, XCircle } from "lucide-react";
+import { fetchArtifactBlob, fetchProfileHtml } from "@/lib/api";
 import type { ResultPreview } from "@/lib/types";
 
 type EvalEntry = { passed?: boolean; summary?: string };
@@ -198,6 +199,67 @@ export function DeliveryResults({
   prUrl,
   deliveryPhase,
 }: Props) {
+  const [profileHtml, setProfileHtml] = useState<string | null>(null);
+  const [profileError, setProfileError] = useState<string | null>(null);
+  const [profileLoading, setProfileLoading] = useState(false);
+  const [pdfDownloading, setPdfDownloading] = useState(false);
+  const [pdfError, setPdfError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!hasProfileHtml) {
+      setProfileHtml(null);
+      return;
+    }
+    let cancelled = false;
+    setProfileLoading(true);
+    setProfileError(null);
+    fetchProfileHtml(runId)
+      .then((html) => {
+        if (!cancelled) setProfileHtml(html);
+      })
+      .catch((e) => {
+        if (!cancelled) {
+          setProfileError(e instanceof Error ? e.message : "Could not load profile");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setProfileLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [runId, hasProfileHtml]);
+
+  async function downloadPdf() {
+    setPdfDownloading(true);
+    setPdfError(null);
+    try {
+      const blob = await fetchArtifactBlob(`/runs/${runId}/report.pdf`);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `etl-report-${runId.slice(0, 8)}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      setPdfError(e instanceof Error ? e.message : "PDF download failed");
+    } finally {
+      setPdfDownloading(false);
+    }
+  }
+
+  async function openProfileTab() {
+    try {
+      const html = profileHtml ?? (await fetchProfileHtml(runId));
+      const blob = new Blob([html], { type: "text/html" });
+      const url = URL.createObjectURL(blob);
+      window.open(url, "_blank", "noopener,noreferrer");
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } catch (e) {
+      setProfileError(e instanceof Error ? e.message : "Could not open profile");
+    }
+  }
+
   const hasRows = Boolean(
     preview?.rows?.length &&
       preview.rows.some((r) => {
@@ -243,40 +305,58 @@ export function DeliveryResults({
 
       <div className="flex flex-wrap gap-2">
         {hasReportPdf && (
-          <a
-            href={artifactUrl(`/runs/${runId}/report.pdf`)}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 rounded-lg border border-white/15 px-4 py-2 text-sm btn-primary"
+          <button
+            type="button"
+            onClick={downloadPdf}
+            disabled={pdfDownloading}
+            className="inline-flex items-center gap-2 rounded-lg border border-white/15 px-4 py-2 text-sm btn-primary disabled:opacity-50"
           >
-            <Download className="h-4 w-4" />
+            {pdfDownloading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Download className="h-4 w-4" />
+            )}
             Final delivery PDF
-          </a>
+          </button>
         )}
         {hasProfileHtml && (
-          <a
-            href={artifactUrl(`/runs/${runId}/profile.html`)}
-            target="_blank"
-            rel="noopener noreferrer"
+          <button
+            type="button"
+            onClick={openProfileTab}
             className="inline-flex items-center gap-2 rounded-lg border border-white/15 px-4 py-2 text-sm hover:bg-white/5"
           >
             <ExternalLink className="h-4 w-4" />
             Open YData profile (new tab)
-          </a>
+          </button>
         )}
       </div>
+      {pdfError && (
+        <p className="text-xs text-red-300">{pdfError}</p>
+      )}
 
       {hasProfileHtml && (
         <div>
           <p className="font-mono text-xs tracking-widest text-muted-foreground mb-2">
             YDATA PROFILE (GRAPHS & STATS)
           </p>
-          <iframe
-            title="YData profile"
-            src={artifactUrl(`/runs/${runId}/profile.html`)}
-            className="w-full h-[520px] rounded-lg border border-white/10 bg-white"
-            sandbox="allow-scripts allow-same-origin"
-          />
+          {profileLoading && (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground py-8 justify-center">
+              <Loader2 className="h-4 w-4 animate-spin" /> Loading profile…
+            </div>
+          )}
+          {profileError && (
+            <p className="text-sm text-red-300 rounded-lg border border-red-500/30 bg-red-500/10 p-3">
+              {profileError}. Ensure ngrok and the API are running.
+            </p>
+          )}
+          {profileHtml && !profileLoading && (
+            <iframe
+              title="YData profile"
+              srcDoc={profileHtml}
+              className="w-full h-[520px] rounded-lg border border-white/10 bg-white"
+              sandbox="allow-scripts allow-same-origin"
+            />
+          )}
         </div>
       )}
 
