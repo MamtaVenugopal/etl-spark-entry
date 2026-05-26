@@ -106,13 +106,24 @@ python3 -m pytest tests/test_<gold_table_name>.py -v
 
 ## Coding agent auto-repair
 
-When the LLM generates invalid Spark syntax, the coding agent:
+When the LLM generates invalid Spark syntax or fails code evaluation, the coding agent:
 
-1. **Sanitizes** (CSV bronze, joins, gold path)
-2. **Repairs** up to `CODING_REPAIR_MAX_ATTEMPTS` passes (default 6)
-3. **If still invalid** → **fails coding** with a clear error (no US-001 template substitution)
+1. **Agent 1 schema on spec** — `parsed_spec` includes `source_table_columns`, `join_graph_hint`, and `schema_context` from FAISS + `schema_chunks.json` (no hand-fixed job copy).
+2. **Sanitizes** (CSV bronze, joins, gold path) — gold-write lines with nested `getenv()` / broken f-strings are replaced entirely (no partial mangling).
+3. **Mechanical repair** up to `CODING_REPAIR_MAX_ATTEMPTS` passes (default 6).
+4. **Eval-feedback loop** (LLM path only): if checks still fail, regenerates code with failed check messages, valid column lists, and prior job snippet, up to `CODING_EVAL_RETRY_MAX` attempts (default 3). Disable with `CODING_EVAL_RETRY_ENABLED=false`.
+5. **SparkJoinValidator** — join keys and groupBy columns checked against the same schema registry before EMR.
+6. **If still invalid** → **fails coding** with a clear error (US-001 still uses aws_template only).
 
-The run `error` / coding `summary` will describe the file path, line number, and that repair was exhausted.
+The run `error` / coding `summary` will describe the file path, line number, and that repair/eval retries were exhausted.
+
+Env vars (see `.env.example`):
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `CODING_REPAIR_MAX_ATTEMPTS` | 6 | Regex/sanitizer repair passes per codegen attempt |
+| `CODING_EVAL_RETRY_MAX` | 3 | LLM regen attempts when evaluation fails |
+| `CODING_EVAL_RETRY_ENABLED` | true | Set false to disable eval-feedback loop |
 
 ---
 
@@ -125,5 +136,19 @@ The run `error` / coding `summary` will describe the file path, line number, and
 | **execute** | EMR Spark runtime OR Athena (gold missing) |
 
 **Stable demo:** submit **US-001** YAML from `README_USERSTORIES.md` with `EXECUTE_SKIP_EMR=true` — avoids EMR and uses a fixed template job.
+
+---
+
+## EMR cluster still running after execute
+
+By default the worker calls `terminate_job_flows` after a **successful** Spark step (`EMR_TERMINATE_ON_SUCCESS=true`) and after a **failed** step (`EMR_TERMINATE_ON_FAILURE=true`) so clusters do not stay in `WAITING` and incur cost.
+
+If clusters stay up:
+
+| Cause | Fix |
+|-------|-----|
+| `EMR_TERMINATE_ON_SUCCESS=false` in `.env` | Set to `true` and `docker compose restart worker` |
+| Old worker code (only terminated newly created clusters) | Pull latest; default is now terminate on every success |
+| `EMR_REUSE_CLUSTER_ID` + terminate disabled | Intentional for dev — terminate manually in AWS console or set `EMR_TERMINATE_ON_SUCCESS=true` |
 
 See also: `EXECUTE_STRATEGY.md`, `EMR_IAM_SETUP.md`

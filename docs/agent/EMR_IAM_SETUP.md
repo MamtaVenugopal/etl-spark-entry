@@ -40,7 +40,9 @@ EMR_CORE_INSTANCE_COUNT=1
 EMR_LOG_URI=s3://olist-ecommerce-raw-2026/emr-logs/
 # Reuse existing cluster (WAITING only — not TERMINATED_WITH_ERRORS):
 # EMR_REUSE_CLUSTER_ID=j-MUZP5J408SLM
-# EMR_TERMINATE_ON_SUCCESS=false   # keep cluster up after success when reusing
+# EMR_TERMINATE_ON_SUCCESS=true    # default: terminate after successful step (cost control)
+# EMR_TERMINATE_ON_FAILURE=true    # default: terminate after failed step (avoid WAITING clusters)
+# EMR_TERMINATE_ON_SUCCESS=false   # keep shared dev cluster up when using EMR_REUSE_CLUSTER_ID
 # EMR_SUBNET_ID=subnet-xxxxxxxx   # uncomment if cluster fails on networking
 
 ## Cluster reuse (same job flow id)
@@ -49,7 +51,8 @@ EMR_LOG_URI=s3://olist-ecommerce-raw-2026/emr-logs/
 |----------|---------|
 | Reuse cluster | `EMR_REUSE_CLUSTER_ID=j-XXXXXXXX` (cluster must be **WAITING**) |
 | Step fails | Cluster **stays up** (`ActionOnFailure=CONTINUE`); full log in run `error` / `execute_log` |
-| Step succeeds | Terminate only if `EMR_TERMINATE_ON_SUCCESS=true` or cluster was newly created |
+| Step succeeds | **Terminate cluster** by default (`EMR_TERMINATE_ON_SUCCESS=true`). Set `false` to keep a reused dev cluster |
+| Step fails | **Terminate cluster** by default (`EMR_TERMINATE_ON_FAILURE=true`). Set `false` to inspect logs on a live cluster |
 | Retry / repair | Same `job_flow_id` via `retry_spark_step_on_emr` (no second cluster) |
 
 Fetch logs: `python scripts/fetch_emr_logs.py --cluster j-XXXXXXXX`
