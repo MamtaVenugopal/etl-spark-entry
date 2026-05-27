@@ -1,6 +1,6 @@
 # Story intake landing (local Vite app)
 
-Local **Cursor dev UI** for the same flow as the hosted [Lovable app](https://etl-spark-entry.lovable.app/#intake). Use this for day-to-day development; use Lovable when you need a public/ngrok demo URL.
+Local **Cursor dev UI** for story intake + run tracking.
 
 **GitHub:** [MamtaVenugopal/etl-spark-entry](https://github.com/MamtaVenugopal/etl-spark-entry) — `landing/` on `main` (commit includes intake + run tracker + Agent 4 delivery UI).
 
@@ -92,16 +92,9 @@ When execute/delivery completes, `/runs/:id` shows:
 
 ---
 
-## Lovable vs local landing
+## Landing → API
 
-| | **Local `landing/`** (this app) | **Lovable hosted** |
-|--|--------------------------------|---------------------|
-| URL | `localhost:5173` or `5174` | [etl-spark-entry.lovable.app](https://etl-spark-entry.lovable.app/#intake) |
-| Code | [landing/src/](src/) in this repo | Lovable project (legacy `src/components/landing/`) |
-| Refine API | `POST /stories/refine` | Same backend |
-| Run page | Dedicated `/runs/:id` route | Often single-page `#intake` + modal |
-
-Both UIs talk to the same **autonomous-etl-agent** API on port **8000** (or ngrok).
+The landing app talks to the **autonomous-etl-agent** API on port **8000** (or a public/ngrok URL).
 
 ---
 
@@ -180,7 +173,7 @@ Vercel hosts static files only. The FastAPI worker needs a server with **Redis +
    AUTO_GATE_1=true
    AUTO_GATE_2=true
    DATA_PLATFORM=aws
-   ALLOWED_ORIGINS=https://your-app.vercel.app,https://etl-spark-entry.lovable.app
+   ALLOWED_ORIGINS=https://your-app.vercel.app
    PUBLIC_API_BASE_URL=https://your-app.vercel.app
    ```
 

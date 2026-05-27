@@ -1,6 +1,6 @@
-# ETL Spark Entry (Lovable UI + local landing + pipelines)
+# ETL Spark Entry (local landing + pipelines)
 
-**Lovable frontend**, **local Cursor landing app**, and **generated ETL artifacts** (PySpark jobs, Airflow DAGs, tests) for the Olist capstone. Agent **prompts** and **setup docs** live in this repo so every README link resolves on GitHub. Run the **FastAPI worker** from sibling [`../autonomous-etl-agent/`](../autonomous-etl-agent/README.md).
+**Local landing app** and **generated ETL artifacts** (PySpark jobs, Airflow DAGs, tests) for the Olist capstone. Agent **prompts** and **setup docs** live in this repo so every README link resolves on GitHub. Run the **FastAPI worker** from sibling [`../autonomous-etl-agent/`](../autonomous-etl-agent/README.md).
 
 | GitHub repo | Contents |
 |-------------|----------|
@@ -10,12 +10,10 @@
 | Path in this repo | Contents |
 |-------------------|----------|
 | [`landing/`](landing/) | **Local story intake SPA** — `/intake` + `/runs/:id` ([landing/README.md](landing/README.md)) |
-| [`src/components/landing/`](src/components/landing/) | Legacy Lovable components (`StoryIntake`, `RunStatus`) |
+| [`src/components/landing/`](src/components/landing/) | Legacy UI components (historical) |
 | [`src/prompts/`](src/prompts/) | LLM prompts (`coding.txt`, `task_breakdown.txt`, …) |
 | [`docs/agent/`](docs/agent/) | User stories, execute strategy, EMR setup, `.env.example` |
 | [`src/jobs/`](src/jobs/), [`dags/`](dags/), [`config/jobs/`](config/jobs/) | PySpark + Airflow + job YAML (GitHub PR targets) |
-
-**Hosted Lovable:** [etl-spark-entry.lovable.app/#intake](https://etl-spark-entry.lovable.app/#intake)
 
 **Capstone story:** [US-001 Monthly Revenue Summary](docs/agent/US001_monthly_revenue.yaml) — all 20 stories in [README_USERSTORIES.md](docs/agent/README_USERSTORIES.md).
 
@@ -30,7 +28,7 @@
 5. [Prompts](#prompts)
 6. [Evaluation system](#evaluation-system)
 7. [Data platform (AWS)](#data-platform-aws)
-8. [API and Lovable UI](#api-and-lovable-ui)
+8. [API and local landing UI](#api-and-local-landing-ui)
 9. [Configuration (.env)](#configuration-env)
 10. [Quick start](#quick-start)
 11. [Related documentation](#related-documentation)
@@ -40,7 +38,7 @@
 ## How the program works
 
 ```text
-User (Lovable hosted OR local landing/ — this repo)
+User (local landing/ — this repo)
     │  POST /stories/refine  (local landing — optional)
     │  POST /stories  { story_id, title, content (YAML) }
     ▼
@@ -81,7 +79,6 @@ Set `AUTO_GATE_1=true` and `AUTO_GATE_2=true` in the worker `.env` to skip manua
 ┌─────────────────────────────────────────────────────────────────┐
 │  UI options                                                      │
 │  • Local landing/  →  localhost:5173/intake + /runs/:id         │
-│  • Lovable hosted  →  etl-spark-entry.lovable.app/#intake       │
 └────────────────────────────┬────────────────────────────────────┘
                              │ HTTPS → localhost:8000 or ngrok
 ┌────────────────────────────▼────────────────────────────────────┐
@@ -108,7 +105,7 @@ Set `AUTO_GATE_1=true` and `AUTO_GATE_2=true` in the worker `.env` to skip manua
 | RAG | `src/rag/` | FAISS over schema chunks |
 | Services | `src/services/` | EMR, Glue, GitHub, Spark sanitize/repair, SQL |
 
-**Docker Compose:** run `docker compose up` from local `autonomous-etl-agent/` — see [LOVABLE_E2E](docs/agent/LOVABLE_E2E.md).
+**Docker Compose:** run `docker compose up` from local `autonomous-etl-agent/`.
 
 ---
 
@@ -202,7 +199,7 @@ Sub-phases: **profiling** (YData HTML from S3 gold) → **testing** (structural 
 |--|--|
 | **API** | `GET /runs/{id}/report.pdf`, `GET /runs/{id}/profile.html` (regenerates from S3 if stale) |
 | **Local UI** | [landing/src/components/DeliveryResults.tsx](landing/src/components/DeliveryResults.tsx) — table, chart, YData iframe, downloads |
-| **Lovable UI** | [RunStatus.tsx](src/components/landing/RunStatus.tsx) — tabs for quality, downloads, preview |
+| **Legacy UI** | [RunStatus.tsx](src/components/landing/RunStatus.tsx) — historical run UI |
 
 ---
 
@@ -244,7 +241,7 @@ Env template: [docs/agent/.env.example](docs/agent/.env.example) (copy to `.env`
 
 ---
 
-## API and Lovable / local landing UI
+## API and local landing UI
 
 | Method | Path | Description |
 |--------|------|-------------|
@@ -263,7 +260,6 @@ Env template: [docs/agent/.env.example](docs/agent/.env.example) (copy to `.env`
 |----|-----|--------|
 | **Local landing** (recommended dev) | `http://localhost:5173/intake` | `landing/.env` → `VITE_API_BASE_URL=http://localhost:8000` |
 | **Vercel hosted landing** (client intake) | `https://<your-app>.vercel.app/intake` | Vercel env → `VITE_API_BASE_URL=https://<your-public-api>` |
-| **Lovable hosted** | [etl-spark-entry.lovable.app/#intake](https://etl-spark-entry.lovable.app/#intake) | Lovable env → ngrok or public API URL |
 
 **CORS:** backend `ALLOWED_ORIGINS` must include `http://localhost:5173` and `http://localhost:5174` (Vite may use 5174 if 5173 is busy).
 
@@ -279,7 +275,7 @@ Important details:
 - **Backend must allow the Vercel origin**: add `https://<your-app>.vercel.app` to `ALLOWED_ORIGINS`.
 - If you are using **ngrok** as the API URL, the landing app must fetch `/profile.html` and `/report.pdf` with the `ngrok-skip-browser-warning` header (implemented in `landing/src/lib/api.ts`).
 
-See [landing/README.md](landing/README.md), [LOVABLE_E2E.md](docs/agent/LOVABLE_E2E.md), [LOVABLE_REPORT_UI.md](docs/agent/LOVABLE_REPORT_UI.md).
+See [landing/README.md](landing/README.md).
 
 **End-to-end test checklist:** [docs/agent/TESTING-4-AGENT.md](docs/agent/TESTING-4-AGENT.md).
 
@@ -335,13 +331,7 @@ npm run dev
 
 Ensure backend CORS includes your Vite port — see [landing/README.md](landing/README.md).
 
-### 3. Lovable hosted UI
-
-[etl-spark-entry.lovable.app/#intake](https://etl-spark-entry.lovable.app/#intake) — set `VITE_API_BASE_URL` to ngrok or your public API.
-
-Legacy components: [src/components/landing/](src/components/landing/) (`StoryIntake`, `RunStatus`).
-
-### 4. US-001 demo (backend CLI)
+### 3. US-001 demo (backend CLI)
 
 ```bash
 python scripts/run_task_breakdown.py config/stories/US001_monthly_revenue.yaml
@@ -351,11 +341,11 @@ python scripts/register_gold_glue.py --table monthly_revenue_summary
 python scripts/run_execute.py config/stories/US001_monthly_revenue.yaml --skip-emr
 ```
 
-### 5. Submit from UI
+### 4. Submit from UI
 
 **Local landing:** refine story on `/intake` → Ship to Agent.
 
-**Lovable / YAML:** paste from [README_USERSTORIES.md](docs/agent/README_USERSTORIES.md); poll `GET /runs/{run_id}`.
+**YAML:** paste from [README_USERSTORIES.md](docs/agent/README_USERSTORIES.md); poll `GET /runs/{run_id}`.
 
 ---
 
@@ -365,9 +355,7 @@ python scripts/run_execute.py config/stories/US001_monthly_revenue.yaml --skip-e
 |----------|--------|
 | [README_USERSTORIES.md](docs/agent/README_USERSTORIES.md) | All 20 user stories + YAML |
 | [landing/README.md](landing/README.md) | Local intake + run status SPA |
-| [docs/agent/TESTING-4-AGENT.md](docs/agent/TESTING-4-AGENT.md) | 4-agent curl + Lovable test checklist |
-| [LOVABLE_E2E.md](docs/agent/LOVABLE_E2E.md) | ngrok + Lovable wiring |
-| [LOVABLE_REPORT_UI.md](docs/agent/LOVABLE_REPORT_UI.md) | UI binding for reports |
+| [docs/agent/TESTING-4-AGENT.md](docs/agent/TESTING-4-AGENT.md) | 4-agent curl test checklist |
 | [EXECUTE_STRATEGY.md](docs/agent/EXECUTE_STRATEGY.md) | EMR vs local vs validate-only |
 | [EMR_IAM_SETUP.md](docs/agent/EMR_IAM_SETUP.md) | EMR + Glue IAM roles |
 | [ERROR_LOGS.md](docs/agent/ERROR_LOGS.md) | Failures (API, S3, EMR) |
@@ -384,7 +372,7 @@ etl-spark-entry/
 ├── landing/                  # Local Vite SPA (/intake, /runs/:id) — on GitHub main
 │   └── src/components/       # StoryIntakeForm, RunTracker, DeliveryResults
 ├── src/
-│   ├── components/landing/   # Legacy Lovable UI (StoryIntake, RunStatus)
+│   ├── components/landing/   # Legacy UI components (historical)
 │   ├── jobs/                 # PySpark gold pipelines
 │   └── prompts/              # LLM prompts
 ├── dags/                     # Airflow / EMR DAGs
@@ -400,4 +388,4 @@ etl-spark-entry/
 
 ## License / context
 
-Autonomous ETL capstone: **user story → spec → code → execute on AWS → delivery (profile, PR, PDF)**, with optional human gates and Lovable as the product shell.
+Autonomous ETL capstone: **user story → spec → code → execute on AWS → delivery (profile, PR, PDF)**, with optional human gates and a landing intake UI.
