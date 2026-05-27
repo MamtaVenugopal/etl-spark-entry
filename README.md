@@ -262,11 +262,22 @@ Env template: [docs/agent/.env.example](docs/agent/.env.example) (copy to `.env`
 | UI | URL | Config |
 |----|-----|--------|
 | **Local landing** (recommended dev) | `http://localhost:5173/intake` | `landing/.env` → `VITE_API_BASE_URL=http://localhost:8000` |
+| **Vercel hosted landing** (client intake) | `https://<your-app>.vercel.app/intake` | Vercel env → `VITE_API_BASE_URL=https://<your-public-api>` |
 | **Lovable hosted** | [etl-spark-entry.lovable.app/#intake](https://etl-spark-entry.lovable.app/#intake) | Lovable env → ngrok or public API URL |
 
 **CORS:** backend `ALLOWED_ORIGINS` must include `http://localhost:5173` and `http://localhost:5174` (Vite may use 5174 if 5173 is busy).
 
 **Local landing flow:** free-text → Refine with AI → edit structured story → **Ship to Agent** (opens `/runs/{runId}` in new tab) → Agent 4 delivery section shows table, chart, YData iframe, PDF links.
+
+### Vercel deployment notes (hosted landing)
+
+To share intake with external users, deploy the `landing/` SPA to Vercel and expose your API publicly (Railway/Render/AWS). See [landing/README.md](landing/README.md) for step-by-step.
+
+Important details:
+
+- **Vercel needs an env var**: `VITE_API_BASE_URL=https://YOUR-PUBLIC-API` (set for **Production**, then **Redeploy**).
+- **Backend must allow the Vercel origin**: add `https://<your-app>.vercel.app` to `ALLOWED_ORIGINS`.
+- If you are using **ngrok** as the API URL, the landing app must fetch `/profile.html` and `/report.pdf` with the `ngrok-skip-browser-warning` header (implemented in `landing/src/lib/api.ts`).
 
 See [landing/README.md](landing/README.md), [LOVABLE_E2E.md](docs/agent/LOVABLE_E2E.md), [LOVABLE_REPORT_UI.md](docs/agent/LOVABLE_REPORT_UI.md).
 

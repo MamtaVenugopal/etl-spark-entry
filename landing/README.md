@@ -206,6 +206,17 @@ Set `VITE_API_BASE_URL` on Vercel to the ngrok HTTPS URL.
    - `ALLOWED_ORIGINS` must include your Vercel URL exactly (no trailing slash).
    - `PUBLIC_API_BASE_URL` = your **Vercel** URL (client run links in Jira/email).
 
+### ngrok note (demo only)
+
+If your public API is an **ngrok** URL, the hosted landing app cannot rely on direct `<iframe src=".../profile.html">` or `<a href=".../report.pdf">` links because ngrok’s interstitial requires a special header.
+
+This landing app fetches artifacts with the `ngrok-skip-browser-warning` header via:
+
+- `fetchProfileHtml(runId)` → embeds via `iframe srcDoc`
+- `fetchArtifactBlob("/runs/{id}/report.pdf")` → downloads via blob
+
+If you copy this UI to another repo/app, make sure you keep that behavior.
+
 ### Step 4 — Smoke test end-to-end
 
 1. Open `https://your-app.vercel.app/intake`
