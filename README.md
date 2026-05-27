@@ -52,8 +52,6 @@ Redis queue  ──►  Worker (autonomous-etl-agent/src/worker.py)
     ├──► [Gate 1] human or AUTO_GATE_1
     ├──► 2. coding           → PySpark + Airflow DAG + YAML (+ SparkJoinValidator)
     ├──► 3. execute          → Spark (EMR/local) + Athena validation + Glue register
-    └──► 4. delivery         → profile → pytest → PR → PDF report
-            (sub-phases: profiling, testing, pr, deploy)
     ▼
 GET /runs/{id}  →  status, evaluations, report, error, outputs
 ```
@@ -65,7 +63,7 @@ Human gates (optional):
 | Gate | When | API |
 |------|------|-----|
 | **Gate 1** | After task breakdown | `POST /runs/{id}/confirm` |
-| **Gate 2** | During delivery (PR) | `POST /runs/{id}/approve` (merge PR) |
+| **Gate 2** | (optional) PR approval | `POST /runs/{id}/approve` (merge PR) |
 
 Set `AUTO_GATE_1=true` and `AUTO_GATE_2=true` in the worker `.env` to skip manual gates when evaluations pass.
 
@@ -83,7 +81,7 @@ Set `AUTO_GATE_1=true` and `AUTO_GATE_2=true` in the worker `.env` to skip manua
                              │ HTTPS → localhost:8000 or ngrok
 ┌────────────────────────────▼────────────────────────────────────┐
 │  api (FastAPI + uvicorn)     redis          worker (Python loop)   │
-│  - POST /stories/refine      queue          - 4-agent pipeline     │
+│  - POST /stories/refine      queue          - 3-agent pipeline     │
 │  - submit story              RunStore       - boto3 / GitHub       │
 │  - poll run status                         - EMR / local Spark     │
 │  - gates, PDF, profile.html (YData)                              │
@@ -98,9 +96,9 @@ Set `AUTO_GATE_1=true` and `AUTO_GATE_2=true` in the worker `.env` to skip manua
 | Component | Path (local `autonomous-etl-agent/`) | Role |
 |-----------|--------------------------------------|------|
 | API | `src/api/main.py` | HTTP intake, run status, gates, PDF |
-| Worker | `src/worker.py` | Dequeues runs, runs 4-agent pipeline |
+| Worker | `src/worker.py` | Dequeues runs, runs 3-agent pipeline |
 | Run store | `src/api/run_store.py` | Redis-backed run state |
-| Agents | `src/agents/` | task_breakdown, coding, execute, delivery |
+| Agents | `src/agents/` | task_breakdown, coding, execute |
 | Evaluators | `src/evaluators/` | Rule-based quality checks per step |
 | RAG | `src/rag/` | FAISS over schema chunks |
 | Services | `src/services/` | EMR, Glue, GitHub, Spark sanitize/repair, SQL |
@@ -113,7 +111,7 @@ Set `AUTO_GATE_1=true` and `AUTO_GATE_2=true` in the worker `.env` to skip manua
 
 ### Orchestration model
 
-The **worker** is a **deterministic Python loop** over four steps (`task_breakdown` → `coding` → `execute` → `delivery`). Delivery orchestrates profile, pytest, GitHub PR, and PDF internally.
+The **worker** is a **deterministic Python loop** over three steps (`task_breakdown` → `coding` → `execute`).
 
 ### Where LangChain is used
 
@@ -131,7 +129,6 @@ The **worker** is a **deterministic Python loop** over four steps (`task_breakdo
 | task_breakdown | Optional | YAML fast-path **or** OpenAI + FAISS RAG |
 | coding | Yes (default) | OpenAI + sanitize/repair + `SparkJoinValidator` eval retry |
 | execute | No | EMR / local Spark + Athena SQL |
-| delivery | No | Profile → pytest → GitHub PR → PDF |
 
 ---
 
@@ -144,7 +141,6 @@ The **worker** is a **deterministic Python loop** over four steps (`task_breakdo
 | **task_breakdown** | `task_breakdown_agent.py` | `story_id`, `title`, `content` | `parsed_spec`, `evaluations.task_breakdown` | [task_breakdown.txt](src/prompts/task_breakdown.txt) |
 | **coding** | `coding_agent.py` | `ETLSpec` | `generated_files[]`, files on disk | [coding.txt](src/prompts/coding.txt) |
 | **execute** | `execute_agent.py` | `ETLSpec`, `generated_files` | `data_validation[]`, `outputs.emr_*`, `gold_s3_uri` | — |
-| **delivery** | `delivery_agent.py` | Full run + `ETLSpec` | `pr_url`, `profile_report`, PDF, `result_preview` | — |
 
 Generated artifacts are committed to **this repo**: [src/jobs/](src/jobs/), [dags/](dags/), [config/jobs/](config/jobs/), [tests/](tests/).
 
@@ -191,15 +187,13 @@ python scripts/register_gold_glue.py --table order_count_by_quarter_product_cate
 
 ---
 
-### Agent 4 — Delivery
+### Outputs (after execute)
 
-Sub-phases: **profiling** (YData HTML from S3 gold) → **testing** (structural pytest) → **pr** (GitHub to this repo) → **deploy** (PDF + `result_preview`).
+After `execute` completes, the run page can show:
 
-| | |
-|--|--|
-| **API** | `GET /runs/{id}/report.pdf`, `GET /runs/{id}/profile.html` (regenerates from S3 if stale) |
-| **Local UI** | [landing/src/components/DeliveryResults.tsx](landing/src/components/DeliveryResults.tsx) — table, chart, YData iframe, downloads |
-| **Legacy UI** | [RunStatus.tsx](src/components/landing/RunStatus.tsx) — historical run UI |
+- `result_preview` (sample rows)
+- `gold_s3_uri` and Glue metadata (if registered)
+- Optional artifacts like `GET /runs/{id}/report.pdf` and `GET /runs/{id}/profile.html` when enabled in the backend
 
 ---
 
@@ -222,7 +216,6 @@ Platform hints: [docs/agent/aws_platform.yaml](docs/agent/aws_platform.yaml) (mi
 | `task_breakdown` | `SpecEvaluator`, `SchemaRAGEvaluator` | gold target, source tables, RAG |
 | `coding` | `CodeEvaluator`, `SparkJoinValidator` | syntax, string join keys, groupBy aliases |
 | `execute` | `ExecuteEvaluator` | Athena validations, gold on S3 |
-| `delivery` | profile / tests / pr / deploy evaluators | YData, pytest, PR merged, PDF |
 
 ---
 
@@ -263,7 +256,7 @@ Env template: [docs/agent/.env.example](docs/agent/.env.example) (copy to `.env`
 
 **CORS:** backend `ALLOWED_ORIGINS` must include `http://localhost:5173` and `http://localhost:5174` (Vite may use 5174 if 5173 is busy).
 
-**Local landing flow:** free-text → Refine with AI → edit structured story → **Ship to Agent** (opens `/runs/{runId}` in new tab) → Agent 4 delivery section shows table, chart, YData iframe, PDF links.
+**Local landing flow:** free-text → Refine with AI → edit structured story → **Ship to Agent** (opens `/runs/{runId}` in new tab) → run page shows status + results preview.
 
 ### Vercel deployment notes (hosted landing)
 
@@ -355,7 +348,7 @@ python scripts/run_execute.py config/stories/US001_monthly_revenue.yaml --skip-e
 |----------|--------|
 | [README_USERSTORIES.md](docs/agent/README_USERSTORIES.md) | All 20 user stories + YAML |
 | [landing/README.md](landing/README.md) | Local intake + run status SPA |
-| [docs/agent/TESTING-4-AGENT.md](docs/agent/TESTING-4-AGENT.md) | 4-agent curl test checklist |
+| [docs/agent/TESTING-4-AGENT.md](docs/agent/TESTING-4-AGENT.md) | Curl test checklist (doc name is legacy) |
 | [EXECUTE_STRATEGY.md](docs/agent/EXECUTE_STRATEGY.md) | EMR vs local vs validate-only |
 | [EMR_IAM_SETUP.md](docs/agent/EMR_IAM_SETUP.md) | EMR + Glue IAM roles |
 | [ERROR_LOGS.md](docs/agent/ERROR_LOGS.md) | Failures (API, S3, EMR) |
@@ -388,4 +381,4 @@ etl-spark-entry/
 
 ## License / context
 
-Autonomous ETL capstone: **user story → spec → code → execute on AWS → delivery (profile, PR, PDF)**, with optional human gates and a landing intake UI.
+Autonomous ETL capstone: **user story → spec → code → execute on AWS**, with optional gates and a landing intake UI.

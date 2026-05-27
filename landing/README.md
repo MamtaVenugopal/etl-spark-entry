@@ -2,7 +2,7 @@
 
 Local **Cursor dev UI** for story intake + run tracking.
 
-**GitHub:** [MamtaVenugopal/etl-spark-entry](https://github.com/MamtaVenugopal/etl-spark-entry) — `landing/` on `main` (commit includes intake + run tracker + Agent 4 delivery UI).
+**GitHub:** [MamtaVenugopal/etl-spark-entry](https://github.com/MamtaVenugopal/etl-spark-entry) — `landing/` on `main` (commit includes intake + run tracker UI).
 
 ---
 
@@ -11,7 +11,7 @@ Local **Cursor dev UI** for story intake + run tracking.
 | URL | Page |
 |-----|------|
 | `/intake` | Hero + free-text story → **Refine with AI** → structured editor |
-| `/runs/:runId` | Pipeline status + **Agent 4 delivery** (table, chart, YData iframe, PDF downloads) |
+| `/runs/:runId` | Pipeline status + outputs (preview, optional artifacts) |
 
 **Ship to Agent** opens `/runs/{runId}` in a **new tab**; intake stays on `/intake`.
 
@@ -75,20 +75,18 @@ docker compose up -d api --force-recreate
 | `POST /stories/refine` | Raw text → structured story (editable fields) |
 | `POST /stories` | YAML body → Jira + `run_id` |
 | `GET /runs/{run_id}` | Poll status, evaluations, `result_preview` |
-| `GET /runs/{run_id}/report.pdf` | Final delivery PDF |
+| `GET /runs/{run_id}/report.pdf` | PDF report (optional) |
 | `GET /runs/{run_id}/profile.html` | YData profile (graphs & stats; regenerated from S3 gold if stale) |
 
 ---
 
-## Run page — Agent 4 · Delivery
+## Run page — Outputs
 
-When execute/delivery completes, `/runs/:id` shows:
+When the pipeline completes, `/runs/:id` shows:
 
-- **Profiling / Unit tests / PR** status badges
 - **Business results table** — sample rows from `result_preview`
-- **Bar chart** — auto-built from label + numeric columns (e.g. `payment_type` vs `average_installments`)
-- **YData profile iframe** — embedded HTML from Agent 4
-- **Download links** — delivery PDF and profile (new tab)
+- **Bar chart** — auto-built from label + numeric columns (when available)
+- **Optional artifacts** — PDF and profile HTML if enabled in the backend
 
 ---
 
@@ -109,7 +107,7 @@ Client browser
     → Vercel (landing SPA)     https://your-app.vercel.app
     → Public API (FastAPI)     https://your-api.up.railway.app
          ├── Redis (queue)
-         └── Worker (4-agent pipeline)
+         └── Worker (3-agent pipeline)
 ```
 
 You need **two** public endpoints: the **frontend** (Vercel) and the **backend** (Railway/Render/AWS). The frontend calls the backend via `VITE_API_BASE_URL`.
@@ -250,6 +248,6 @@ landing/
 ├── src/components/
 │   ├── StoryIntakeForm.tsx       # refine + ship
 │   ├── RunTracker.tsx            # pipeline + gates
-│   └── DeliveryResults.tsx       # Agent 4 table, chart, YData, downloads
+│   └── DeliveryResults.tsx       # results table, chart, optional artifacts
 └── src/lib/api.ts                # API_BASE, fetchRun, refine, submit
 ```
