@@ -1,0 +1,15 @@
+job_name: product_weight_summary_by_city
+source_tables:
+  - olist_orders_raw
+  - olist_order_items_raw
+  - olist_products_raw
+  - olist_customers_raw
+target_table: gold.product_weight_per_city
+transformations:
+  - Join olist_orders_raw with olist_order_items_raw on order_id
+  - Join the result with olist_products_raw on product_id
+  - Group by city and sum the product weight
+acceptance_criteria:
+  - SELECT city, SUM(weight) AS total_weight FROM gold.product_weight_per_city GROUP BY city
+  - Check that total_weight is not null for any city
+  - Verify that the total weight for each city matches the sum of weights from the raw tables
