@@ -1,23 +1,27 @@
 from airflow import DAG
 from airflow.providers.amazon.aws.operators.emr import EmrCreateJobFlowOperator, EmrAddStepsOperator, EmrTerminateJobFlowOperator
-from datetime import datetime
+from airflow.utils.dates import days_ago
 import os
 
 # Define the default arguments for the DAG
 default_args = {
     'owner': 'airflow',
-    'start_date': datetime(2023, 1, 1),
-    'retries': 1,
+    'start_date': days_ago(1),
 }
 
-# Create the DAG
-with DAG('average_items_per_order_monthly_dag', default_args=default_args, schedule_interval='@monthly', catchup=False) as dag:
+# Define the DAG
+with DAG(
+    dag_id='average_items_per_order_monthly_dag',
+    default_args=default_args,
+    schedule_interval='@monthly',
+    catchup=False,
+) as dag:
 
     # Create EMR cluster
     create_emr_cluster = EmrCreateJobFlowOperator(
         task_id='create_emr_cluster',
         job_flow_overrides={
-            'Name': 'AverageItemsPerOrderMonthlyCluster',
+            'Name': 'Average Items Per Order Monthly EMR',
             'ReleaseLabel': 'emr-6.3.0',
             'Instances': {
                 'InstanceGroups': [
@@ -38,7 +42,6 @@ with DAG('average_items_per_order_monthly_dag', default_args=default_args, sched
                 'TerminationProtected': False,
             },
         },
-        aws_conn_id='aws_default',
     )
 
     # Add steps to the EMR cluster
