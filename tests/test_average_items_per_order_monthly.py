@@ -26,3 +26,11 @@ def test_target_referenced():
         or "gold.average_items_per_order_monthly" in text
         or "TARGET_TABLE" in text
     ), "Pipeline should reference target table name or TARGET_TABLE env"
+
+
+def test_two_step_aggregation():
+    text = PIPELINE.read_text(encoding="utf-8")
+    assert "items_in_order" in text
+    assert "order_year" in text
+    assert "order_month" in text
+    assert "average_items_per_order" in text
