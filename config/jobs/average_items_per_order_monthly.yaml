@@ -1,0 +1,14 @@
+job_name: average_items_per_order_monthly
+source_tables:
+  - olist_orders_raw
+  - olist_order_items_raw
+target_table: gold.average_items_per_order_monthly
+transformations:
+  - Join olist_orders_raw with olist_order_items_raw on olist_orders_raw.order_id = olist_order_items_raw.order_id
+  - Group by month and year of order_date from olist_orders_raw
+  - Count the number of items per order using COUNT(olist_order_items_raw.order_item_id)
+  - Calculate the average items per order using AVG(item_count)
+acceptance_criteria:
+  - SELECT COUNT(order_item_id) / COUNT(DISTINCT order_id) AS average_items FROM gold.average_items_per_order_monthly WHERE month = '2023-01'
+  - SELECT COUNT(order_item_id) / COUNT(DISTINCT order_id) AS average_items FROM gold.average_items_per_order_monthly WHERE month = '2023-02'
+  - Ensure the result set contains one row for each month with the correct average calculated
