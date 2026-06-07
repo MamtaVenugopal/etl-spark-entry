@@ -1,6 +1,5 @@
 from pyspark.sql import SparkSession
 from pyspark.sql import functions as F
-from pyspark.sql.functions import countDistinct, date_format
 import os
 
 BUCKET = os.environ.get("S3_DATA_BUCKET", "olist-ecommerce-raw-2026")
@@ -29,30 +28,28 @@ def _read_bronze(spark, table: str):
 def main():
     spark = SparkSession.builder.appName("Average Items Per Order Monthly").getOrCreate()
 
-    # Read bronze tables
     orders = _read_bronze(spark, "olist_orders_raw")
-    orders = orders.withColumn("order_purchase_timestamp", F.to_timestamp("order_purchase_timestamp"))
+    orders = orders.withColumn(
+        "order_purchase_timestamp", F.to_timestamp("order_purchase_timestamp")
+    )
     items = _read_bronze(spark, "olist_order_items_raw")
 
-    # Join tables
-    result = (orders.alias("o")
-        .join(items.alias("i"), "order_id")
-        .groupBy(date_format("o.order_purchase_timestamp", "yyyy-MM").alias("month"))
-        .agg(
-            countDistinct("i.order_item_id").alias("item_count"),
-            countDistinct("o.order_id").alias("order_count")
-        )
-        .select(
-            "month",
-            (F.sum("item_count") / F.sum("order_count")).alias("average_items")
-        )
+    joined = orders.alias("o").join(items.alias("i"), "order_id")
+
+    items_per_order = joined.groupBy("order_id", F.year("o.order_purchase_timestamp").alias("order_year"),
+        F.month("o.order_purchase_timestamp").alias("order_month"),
+    ).agg(F.count("i.order_item_id").alias("items_in_order"))
+
+    result = items_per_order.groupBy("order_year", "order_month").agg(
+        F.avg("items_in_order").alias("average_items_per_order")
     )
 
-    # Write gold table
-    result.write.mode("overwrite").parquet(f"s3://{BUCKET}/{GOLD_PREFIX}/{TARGET_TABLE}/")
+    result.write.mode("overwrite").parquet(
+        f"s3://{BUCKET}/{GOLD_PREFIX}/{TARGET_TABLE}/"
+    )
 
     spark.stop()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
