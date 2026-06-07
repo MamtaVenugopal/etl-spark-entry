@@ -1,6 +1,6 @@
 from pyspark.sql import SparkSession
 from pyspark.sql import functions as F
-from pyspark.sql.functions import countDistinct, avg, date_format
+from pyspark.sql.functions import countDistinct, date_format
 import os
 
 BUCKET = os.environ.get("S3_DATA_BUCKET", "olist-ecommerce-raw-2026")
@@ -37,15 +37,21 @@ def main():
     # Join tables
     result = (orders.alias("o")
         .join(items.alias("i"), "order_id")
-        .groupBy(date_format("o.order_purchase_timestamp", 'yyyy-MM').alias('month'))
+        .groupBy(date_format("o.order_purchase_timestamp", "yyyy-MM").alias("month"))
         .agg(
             countDistinct("i.order_item_id").alias("item_count"),
-            (countDistinct("i.order_item_id") / countDistinct("o.order_id")).alias("average_items")
+            countDistinct("o.order_id").alias("order_count")
+        )
+        .select(
+            "month",
+            (F.sum("item_count") / F.sum("order_count")).alias("average_items")
         )
     )
 
     # Write gold table
     result.write.mode("overwrite").parquet(f"s3://{BUCKET}/{GOLD_PREFIX}/{TARGET_TABLE}/")
+
+    spark.stop()
 
 
 if __name__ == '__main__':
