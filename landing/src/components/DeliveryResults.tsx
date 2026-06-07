@@ -150,8 +150,12 @@ function humanizeColumn(name: string): string {
     .replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-function axisTitle(profile: ChartProfile, axis: "x" | "y"): string {
+function axisTitle(profile: ChartProfile, axis: "x" | "y" | "z"): string {
+  if (axis === "x" && profile.x_axis_label) return profile.x_axis_label;
+  if (axis === "y" && profile.y_axis_label) return profile.y_axis_label;
+  if (axis === "z" && profile.z_axis_label) return profile.z_axis_label;
   if (axis === "y") return humanizeColumn(profile.value_column);
+  if (axis === "z" && profile.series_column) return humanizeColumn(profile.series_column);
   if (
     profile.label_column === "year_month" ||
     profile.label_column === "order_year_month"
@@ -160,6 +164,286 @@ function axisTitle(profile: ChartProfile, axis: "x" | "y"): string {
   }
   if (profile.label_column === "year_quarter") return "Quarter";
   return humanizeColumn(profile.label_column);
+}
+
+const SERIES_COLORS = [
+  "#22d3ee",
+  "#34d399",
+  "#a78bfa",
+  "#fbbf24",
+  "#f87171",
+  "#60a5fa",
+];
+
+type Bar3DPoint = {
+  period: string;
+  series: string;
+  value: number;
+  sortKey: string;
+  periodIdx: number;
+  seriesIdx: number;
+};
+
+function isoProject(
+  x: number,
+  y: number,
+  z: number,
+  origin: { x: number; y: number },
+  scale: { x: number; y: number; z: number },
+): { x: number; y: number } {
+  const isoX = 0.866;
+  const isoZ = 0.5;
+  return {
+    x: origin.x + (x * scale.x - z * scale.z) * isoX,
+    y: origin.y - y * scale.y + (x * scale.x + z * scale.z) * isoZ,
+  };
+}
+
+function Surface3DChart({
+  preview,
+  profile,
+}: {
+  preview: ResultPreview;
+  profile: ChartProfile;
+}) {
+  const rows = preview.rows ?? [];
+  const columns = preview.columns ?? [];
+  if (rows.length === 0 || !profile.series_column) return null;
+
+  const labelCols =
+    profile.label_columns ??
+    (profile.label_column === "order_year_month"
+      ? ["order_year", "order_month"]
+      : ["year", "month"]);
+
+  const buildPeriod = (row: Record<string, unknown> | unknown[]) => {
+    const y = cellValue(row, labelCols[0], columns);
+    const m = cellValue(row, labelCols[1], columns);
+    if (y != null && m != null) {
+      return `${Math.trunc(Number(y))}-${String(Math.trunc(Number(m))).padStart(2, "0")}`;
+    }
+    return "unknown";
+  };
+
+  const buildSortKey = (row: Record<string, unknown> | unknown[]) => {
+    const y = cellValue(row, labelCols[0], columns);
+    const m = cellValue(row, labelCols[1], columns);
+    if (y != null && m != null) {
+      return `${String(Math.trunc(Number(y))).padStart(4, "0")}-${String(Math.trunc(Number(m))).padStart(2, "0")}`;
+    }
+    return buildPeriod(row);
+  };
+
+  const rawPoints: Bar3DPoint[] = rows.map((row) => {
+    const period = buildPeriod(row);
+    const series = String(cellValue(row, profile.series_column!, columns) ?? "unknown");
+    const raw = cellValue(row, profile.value_column, columns);
+    const value = typeof raw === "number" ? raw : Number(raw);
+    return {
+      period,
+      series,
+      value: Number.isNaN(value) ? 0 : value,
+      sortKey: buildSortKey(row),
+      periodIdx: 0,
+      seriesIdx: 0,
+    };
+  });
+
+  const periods = [...new Set(rawPoints.map((p) => p.period))].sort((a, b) => {
+    const ka = rawPoints.find((p) => p.period === a)?.sortKey ?? a;
+    const kb = rawPoints.find((p) => p.period === b)?.sortKey ?? b;
+    return ka.localeCompare(kb);
+  });
+  const seriesList = [...new Set(rawPoints.map((p) => p.series))].sort();
+
+  const periodIndex = new Map(periods.map((p, i) => [p, i]));
+  const seriesIndex = new Map(seriesList.map((s, i) => [s, i]));
+
+  const points = rawPoints
+    .map((p) => ({
+      ...p,
+      periodIdx: periodIndex.get(p.period) ?? 0,
+      seriesIdx: seriesIndex.get(p.series) ?? 0,
+    }))
+    .slice(0, 120);
+
+  const maxValue = Math.max(...points.map((p) => p.value), 1);
+  const width = 640;
+  const height = 360;
+  const margin = { top: 28, right: 140, bottom: 48, left: 72 };
+  const origin = { x: margin.left + 20, y: height - margin.bottom - 10 };
+  const scale = { x: 14, y: (height - margin.top - margin.bottom - 40) / maxValue, z: 18 };
+
+  const seriesColor = (series: string) =>
+    SERIES_COLORS[seriesIndex.get(series)! % SERIES_COLORS.length];
+
+  const barWidth = 10;
+  const barDepth = 8;
+
+  const bars = points.map((p) => {
+    const base = isoProject(p.periodIdx * 1.2, 0, p.seriesIdx * 1.1, origin, scale);
+    const topFront = isoProject(p.periodIdx * 1.2, p.value, p.seriesIdx * 1.1, origin, scale);
+    const topBack = isoProject(
+      p.periodIdx * 1.2 + barWidth / scale.x,
+      p.value,
+      p.seriesIdx * 1.1 + barDepth / scale.z,
+      origin,
+      scale,
+    );
+    const baseBack = isoProject(
+      p.periodIdx * 1.2 + barWidth / scale.x,
+      0,
+      p.seriesIdx * 1.1 + barDepth / scale.z,
+      origin,
+      scale,
+    );
+    const baseSide = isoProject(
+      p.periodIdx * 1.2 + barWidth / scale.x,
+      0,
+      p.seriesIdx * 1.1,
+      origin,
+      scale,
+    );
+    const topSide = isoProject(
+      p.periodIdx * 1.2 + barWidth / scale.x,
+      p.value,
+      p.seriesIdx * 1.1,
+      origin,
+      scale,
+    );
+    return { ...p, base, topFront, topBack, baseBack, baseSide, topSide, color: seriesColor(p.series) };
+  });
+
+  const xEnd = isoProject(Math.max(periods.length - 1, 1) * 1.2 + 1, 0, 0, origin, scale);
+  const zEnd = isoProject(0, 0, Math.max(seriesList.length - 1, 1) * 1.1 + 0.8, origin, scale);
+  const yEnd = isoProject(0, maxValue * 1.05, 0, origin, scale);
+
+  const xTitle = axisTitle(profile, "x");
+  const yTitle = axisTitle(profile, "y");
+  const zTitle = axisTitle(profile, "z");
+
+  return (
+    <div className="rounded-lg border border-white/10 bg-background/20 p-4 space-y-3">
+      <p className="font-mono text-xs tracking-widest text-muted-foreground">
+        CHART · 3D · {profile.title}
+      </p>
+      <svg
+        viewBox={`0 0 ${width} ${height}`}
+        className="w-full max-w-3xl h-auto"
+        role="img"
+        aria-label={`${profile.title} 3D chart`}
+      >
+        {/* Y axis */}
+        <line
+          x1={origin.x}
+          y1={origin.y}
+          x2={yEnd.x}
+          y2={yEnd.y}
+          stroke="rgba(255,255,255,0.35)"
+        />
+        <text
+          x={yEnd.x - 8}
+          y={yEnd.y - 6}
+          fill="rgba(255,255,255,0.7)"
+          fontSize="11"
+          fontFamily="ui-monospace, monospace"
+        >
+          {yTitle}
+        </text>
+        {/* X axis (period) */}
+        <line
+          x1={origin.x}
+          y1={origin.y}
+          x2={xEnd.x}
+          y2={xEnd.y}
+          stroke="rgba(255,255,255,0.35)"
+        />
+        <text
+          x={xEnd.x - 20}
+          y={xEnd.y + 18}
+          fill="rgba(255,255,255,0.7)"
+          fontSize="11"
+          fontFamily="ui-monospace, monospace"
+        >
+          {xTitle}
+        </text>
+        {/* Z axis (payment type depth) */}
+        <line
+          x1={origin.x}
+          y1={origin.y}
+          x2={zEnd.x}
+          y2={zEnd.y}
+          stroke="rgba(255,255,255,0.35)"
+        />
+        <text
+          x={zEnd.x - 40}
+          y={zEnd.y + 14}
+          fill="rgba(255,255,255,0.7)"
+          fontSize="11"
+          fontFamily="ui-monospace, monospace"
+        >
+          {zTitle}
+        </text>
+
+        {bars.map((b, i) => (
+          <g key={`${b.period}-${b.series}-${i}`}>
+            <polygon
+              points={`${b.base.x},${b.base.y} ${b.baseSide.x},${b.baseSide.y} ${b.baseBack.x},${b.baseBack.y} ${b.topBack.x},${b.topBack.y} ${b.topSide.x},${b.topSide.y} ${b.topFront.x},${b.topFront.y}`}
+              fill={b.color}
+              fillOpacity="0.35"
+              stroke={b.color}
+              strokeWidth="0.5"
+            />
+            <polygon
+              points={`${b.base.x},${b.base.y} ${b.topFront.x},${b.topFront.y} ${b.topSide.x},${b.topSide.y} ${b.baseSide.x},${b.baseSide.y}`}
+              fill={b.color}
+              fillOpacity="0.85"
+            />
+            <polygon
+              points={`${b.topFront.x},${b.topFront.y} ${b.topBack.x},${b.topBack.y} ${b.topSide.x},${b.topSide.y}`}
+              fill={b.color}
+              fillOpacity="0.65"
+            />
+          </g>
+        ))}
+
+        {/* Period tick labels (sparse) */}
+        {periods.map((period, idx) => {
+          if (idx % 3 !== 0 && idx !== periods.length - 1) return null;
+          const tick = isoProject(idx * 1.2, 0, -0.3, origin, scale);
+          return (
+            <text
+              key={period}
+              x={tick.x}
+              y={tick.y + 16}
+              textAnchor="middle"
+              fill="rgba(255,255,255,0.5)"
+              fontSize="8"
+              fontFamily="ui-monospace, monospace"
+            >
+              {period}
+            </text>
+          );
+        })}
+      </svg>
+
+      {/* Legend */}
+      <div className="flex flex-wrap gap-x-4 gap-y-2 pt-1">
+        <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground w-full">
+          Legend · Payment Type
+        </span>
+        {seriesList.map((series) => (
+          <div key={series} className="flex items-center gap-2 text-xs font-mono">
+            <span
+              className="inline-block h-2.5 w-2.5 rounded-sm"
+              style={{ backgroundColor: seriesColor(series) }}
+            />
+            <span className="text-muted-foreground">{series}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 function formatAxisValue(value: number): string {
@@ -510,6 +794,33 @@ function normalizeChartProfile(
   profile: ChartProfile,
   columns: string[],
 ): ChartProfile {
+  const hasPayment = columns.includes("payment_type");
+  const ym =
+    columns.includes("year") && columns.includes("month")
+      ? (["year", "month"] as const)
+      : columns.includes("order_year") && columns.includes("order_month")
+        ? (["order_year", "order_month"] as const)
+        : null;
+  const valueCol =
+    columns.find((c) => c === "average_installments") ??
+    columns.find((c) => c === profile.value_column) ??
+    profile.value_column;
+
+  if (hasPayment && ym) {
+    return {
+      chart_type: "surface_3d",
+      label_column: ym[0] === "order_year" ? "order_year_month" : "year_month",
+      label_columns: [...ym],
+      value_column: valueCol,
+      series_column: "payment_type",
+      title: profile.title.replace(" over time", ""),
+      time_series: true,
+      x_axis_label: "Period (Year-Month)",
+      y_axis_label: humanizeColumn(valueCol),
+      z_axis_label: "Payment Type",
+    };
+  }
+
   if (
     profile.label_column === "year" &&
     columns.includes("month") &&
@@ -554,6 +865,10 @@ function ResultsChartFromProfile({
   if (rows.length === 0) return null;
 
   const profile = normalizeChartProfile(rawProfile, columns);
+
+  if (profile.chart_type === "surface_3d" && profile.series_column) {
+    return <Surface3DChart preview={preview} profile={profile} />;
+  }
 
   const labelCols =
     profile.label_columns ??

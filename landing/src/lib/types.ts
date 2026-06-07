@@ -28,12 +28,16 @@ export type ResultPreview = {
 };
 
 export type ChartProfile = {
-  chart_type: "bar" | "line" | "horizontal_bar";
+  chart_type: "bar" | "line" | "horizontal_bar" | "surface_3d";
   label_column: string;
   value_column: string;
   title: string;
   time_series?: boolean;
   label_columns?: string[];
+  series_column?: string;
+  x_axis_label?: string;
+  y_axis_label?: string;
+  z_axis_label?: string;
 };
 
 export type RunReport = {

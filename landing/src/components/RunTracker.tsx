@@ -356,7 +356,7 @@ export function RunTracker({ runId, initialRun, autoGates = false }: Props) {
         <DeliveryResults
           runId={runId}
           preview={resultPreview}
-          chartProfile={run.outputs?.chart_profile ?? run.report?.chart_profile}
+          chartProfile={run.report?.chart_profile ?? run.outputs?.chart_profile}
           complete={isComplete}
           hasReportPdf={hasReportPdf}
           hasProfileHtml={hasProfileHtml}
