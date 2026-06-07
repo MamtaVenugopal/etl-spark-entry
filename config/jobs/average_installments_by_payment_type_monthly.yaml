@@ -1,0 +1,13 @@
+job_name: average_installments_by_payment_type_monthly
+source_tables:
+  - olist_orders_raw
+  - olist_order_payments_raw
+target_table: gold.average_installments_by_payment_type_monthly
+transformations:
+  - Join olist_orders_raw with olist_order_payments_raw on order_id
+  - Group by payment_type, year, month
+  - Calculate average_installments for each payment_type and month
+acceptance_criteria:
+  - SELECT payment_type, year, month, AVG(installments) AS average_installments FROM gold.average_installments_by_payment_type_monthly WHERE year IN (2016, 2017, 2018) GROUP BY payment_type, year, month
+  - Check that the average_installments for 'credit_card' in January 2017 is correct
+  - Check that the average_installments for 'boleto' in December 2018 is correct
