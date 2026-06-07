@@ -1,10 +1,20 @@
 import { useState } from "react";
-import { Loader2, Send, Sparkles } from "lucide-react";
-import { refineStory, submitStory, apiConfigured, usingDefaultApiUrl, API_BASE } from "@/lib/api";
+import { CheckCircle2, Loader2, Send, ShieldCheck, Sparkles } from "lucide-react";
+import {
+  refineStory,
+  submitStory,
+  validateStory,
+  apiConfigured,
+  usingDefaultApiUrl,
+  API_BASE,
+} from "@/lib/api";
 import { storyToYaml } from "@/lib/storyToYaml";
-import type { StructuredStory, StoryPriority } from "@/lib/types";
+import type { StructuredStory, StoryPriority, StoryValidateResponse } from "@/lib/types";
 
 const PLACEHOLDER = `e.g. We need order counts by seller city and product category from Olist bronze tables. Join orders, items, sellers, products, and category translation. Output gold table with seller_city, product_category_name_english, and order_count.`;
+
+const BLOCK_SHIP_ON_VALIDATION_FAIL =
+  import.meta.env.VITE_BLOCK_SHIP_ON_VALIDATION_FAIL !== "false";
 
 type Props = {
   autoGates?: boolean;
@@ -14,8 +24,23 @@ export function StoryIntakeForm({ autoGates: _autoGates }: Props) {
   const [raw, setRaw] = useState("");
   const [story, setStory] = useState<StructuredStory | null>(null);
   const [refining, setRefining] = useState(false);
+  const [validating, setValidating] = useState(false);
+  const [validation, setValidation] = useState<StoryValidateResponse | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  async function runValidation(nextStory: StructuredStory) {
+    setValidating(true);
+    try {
+      const result = await validateStory(nextStory);
+      setValidation(result);
+    } catch (e) {
+      setValidation(null);
+      setError(e instanceof Error ? e.message : "Validation failed");
+    } finally {
+      setValidating(false);
+    }
+  }
 
   async function handleRefine() {
     if (raw.trim().length < 20) {
@@ -23,10 +48,12 @@ export function StoryIntakeForm({ autoGates: _autoGates }: Props) {
       return;
     }
     setError(null);
+    setValidation(null);
     setRefining(true);
     try {
       const refined = await refineStory(raw);
       setStory(refined);
+      await runValidation(refined);
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Could not refine story.";
       if (msg === "Failed to fetch" || msg.includes("NetworkError")) {
@@ -41,10 +68,20 @@ export function StoryIntakeForm({ autoGates: _autoGates }: Props) {
     }
   }
 
+  async function handleValidate() {
+    if (!story) return;
+    setError(null);
+    await runValidation(story);
+  }
+
   async function handleSubmit() {
     if (!story) return;
     if (!apiConfigured()) {
       setError("VITE_API_BASE_URL is not configured.");
+      return;
+    }
+    if (BLOCK_SHIP_ON_VALIDATION_FAIL && validation && !validation.passed) {
+      setError("Fix validation errors before shipping, or edit the story and click Validate story.");
       return;
     }
     setError(null);
@@ -63,6 +100,7 @@ export function StoryIntakeForm({ autoGates: _autoGates }: Props) {
   }
 
   function update<K extends keyof StructuredStory>(k: K, v: StructuredStory[K]) {
+    setValidation(null);
     setStory((s) => (s ? { ...s, [k]: v } : s));
   }
 
@@ -229,10 +267,73 @@ export function StoryIntakeForm({ autoGates: _autoGates }: Props) {
               </Field>
             </div>
 
+            {validation && (
+              <div
+                className={`rounded-lg border p-4 text-sm ${
+                  validation.passed
+                    ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-100"
+                    : "border-amber-500/30 bg-amber-500/10 text-amber-100"
+                }`}
+              >
+                <div className="flex items-center gap-2 font-medium">
+                  {validation.passed ? (
+                    <CheckCircle2 className="h-4 w-4" />
+                  ) : (
+                    <ShieldCheck className="h-4 w-4" />
+                  )}
+                  Story validation {validation.passed ? "passed" : "needs fixes"} (score{" "}
+                  {validation.score.toFixed(2)})
+                </div>
+                {validation.summary && (
+                  <p className="mt-2 text-xs opacity-90">{validation.summary}</p>
+                )}
+                <ul className="mt-3 space-y-1 text-xs font-mono">
+                  {validation.checks
+                    .filter((c) => !c.passed)
+                    .map((c) => (
+                      <li key={c.name}>
+                        [{c.severity}] {c.message}
+                      </li>
+                    ))}
+                </ul>
+                {validation.suggested_fixes.length > 0 && (
+                  <ul className="mt-2 list-disc pl-4 text-xs">
+                    {validation.suggested_fixes.map((fix) => (
+                      <li key={fix}>{fix}</li>
+                    ))}
+                  </ul>
+                )}
+                {validation.generated_test_path && (
+                  <p className="mt-2 text-xs opacity-75">
+                    Generated tests: {validation.generated_test_path}
+                  </p>
+                )}
+              </div>
+            )}
+
+            <div className="flex flex-wrap gap-3">
+              <button
+                type="button"
+                onClick={handleValidate}
+                disabled={validating || !apiConfigured()}
+                className="inline-flex items-center gap-2 rounded-lg border border-white/15 px-4 py-2 text-sm font-medium btn-primary disabled:opacity-50"
+              >
+                {validating ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <ShieldCheck className="h-4 w-4" />
+                )}
+                {validating ? "Validating…" : "Validate story"}
+              </button>
+
             <button
               type="button"
               onClick={handleSubmit}
-              disabled={submitting || !apiConfigured()}
+              disabled={
+                submitting ||
+                !apiConfigured() ||
+                (BLOCK_SHIP_ON_VALIDATION_FAIL && validation !== null && !validation.passed)
+              }
               className="inline-flex items-center gap-2 rounded-lg border border-white/15 px-6 py-3 text-sm font-medium btn-primary disabled:opacity-50"
             >
               {submitting ? (
@@ -242,6 +343,7 @@ export function StoryIntakeForm({ autoGates: _autoGates }: Props) {
               )}
               {submitting ? "Submitting…" : "Ship to Agent"}
             </button>
+            </div>
           </div>
         )}
       </div>

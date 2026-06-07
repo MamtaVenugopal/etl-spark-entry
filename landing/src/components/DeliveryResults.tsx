@@ -1,13 +1,14 @@
 import { useEffect, useState } from "react";
 import { CheckCircle2, Download, ExternalLink, Loader2, XCircle } from "lucide-react";
 import { fetchArtifactBlob, fetchProfileHtml } from "@/lib/api";
-import type { ResultPreview } from "@/lib/types";
+import type { ChartProfile, ResultPreview } from "@/lib/types";
 
 type EvalEntry = { passed?: boolean; summary?: string };
 
 type Props = {
   runId: string;
   preview?: ResultPreview;
+  chartProfile?: ChartProfile;
   complete: boolean;
   hasReportPdf: boolean;
   hasProfileHtml: boolean;
@@ -143,7 +144,542 @@ function ResultsTable({ preview, complete }: { preview?: ResultPreview; complete
   );
 }
 
-function ResultsChart({ preview }: { preview: ResultPreview }) {
+function humanizeColumn(name: string): string {
+  return name
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function axisTitle(profile: ChartProfile, axis: "x" | "y"): string {
+  if (axis === "y") return humanizeColumn(profile.value_column);
+  if (
+    profile.label_column === "year_month" ||
+    profile.label_column === "order_year_month"
+  ) {
+    return "Period";
+  }
+  if (profile.label_column === "year_quarter") return "Quarter";
+  return humanizeColumn(profile.label_column);
+}
+
+function formatAxisValue(value: number): string {
+  if (Math.abs(value) >= 1_000_000) {
+    return `${(value / 1_000_000).toFixed(1)}M`;
+  }
+  if (Math.abs(value) >= 1_000) {
+    return `${(value / 1_000).toFixed(0)}k`;
+  }
+  return value.toLocaleString(undefined, { maximumFractionDigits: 1 });
+}
+
+function niceTicks(min: number, max: number, count = 4): number[] {
+  if (min === max) {
+    const pad = Math.max(Math.abs(min) * 0.1, 1);
+    return [min - pad, min, min + pad].sort((a, b) => a - b);
+  }
+  const span = max - min;
+  const step = span / count;
+  const ticks: number[] = [];
+  for (let i = 0; i <= count; i += 1) {
+    ticks.push(min + step * i);
+  }
+  return ticks.sort((a, b) => a - b);
+}
+
+function buildYAxis(values: number[]): { min: number; max: number; ticks: number[] } {
+  const dataMin = Math.min(...values);
+  const dataMax = Math.max(...values);
+  let min = Math.min(0, dataMin);
+  let max = dataMax <= 0 ? 1 : dataMax * 1.06;
+  if (dataMin === dataMax) {
+    min = Math.min(0, dataMin * 0.85);
+    max = dataMax * 1.15 || 1;
+  }
+  const ticks = niceTicks(min, max, 5);
+  return {
+    min: ticks[0],
+    max: ticks[ticks.length - 1],
+    ticks,
+  };
+}
+
+function isTimeSeriesProfile(profile: ChartProfile): boolean {
+  return (
+    profile.time_series === true ||
+    profile.label_column === "year_month" ||
+    profile.label_column === "order_year_month" ||
+    profile.label_column === "year_quarter"
+  );
+}
+
+function sortChartPoints(
+  points: Array<{ label: string; value: number; sortKey?: string }>,
+  profile: ChartProfile,
+): Array<{ label: string; value: number; sortKey?: string }> {
+  if (profile.chart_type === "line" || isTimeSeriesProfile(profile)) {
+    return [...points].sort((a, b) =>
+      (a.sortKey ?? a.label).localeCompare(b.sortKey ?? b.label),
+    );
+  }
+  if (profile.chart_type === "horizontal_bar") {
+    return [...points].sort((a, b) => b.value - a.value);
+  }
+  return [...points].sort((a, b) =>
+    (a.sortKey ?? a.label).localeCompare(b.sortKey ?? b.label),
+  );
+}
+
+function LineChartWithAxes({
+  points,
+  profile,
+}: {
+  points: Array<{ label: string; value: number }>;
+  profile: ChartProfile;
+}) {
+  const width = 520;
+  const height = 260;
+  const margin = { top: 20, right: 20, bottom: 56, left: 64 };
+  const plotW = width - margin.left - margin.right;
+  const plotH = height - margin.top - margin.bottom;
+
+  const { min, max, ticks: yTicks } = buildYAxis(points.map((p) => p.value));
+  const range = max - min || 1;
+
+  const coords = points.map((p, i) => {
+    const x =
+      margin.left +
+      (i / Math.max(points.length - 1, 1)) * plotW;
+    const y =
+      margin.top +
+      plotH -
+      ((p.value - min) / range) * plotH;
+    return { x, y, ...p };
+  });
+
+  const xLabelStep = Math.max(1, Math.ceil(points.length / 8));
+  const polyline = coords.map((c) => `${c.x},${c.y}`).join(" ");
+  const xTitle = axisTitle(profile, "x");
+  const yTitle = axisTitle(profile, "y");
+
+  return (
+    <div className="rounded-lg border border-white/10 bg-background/20 p-4 space-y-2">
+      <p className="font-mono text-xs tracking-widest text-muted-foreground">
+        CHART · {profile.title}
+      </p>
+      <svg
+        viewBox={`0 0 ${width} ${height}`}
+        className="w-full max-w-2xl h-auto"
+        role="img"
+        aria-label={`${profile.title} line chart`}
+      >
+        {/* Y axis line */}
+        <line
+          x1={margin.left}
+          y1={margin.top}
+          x2={margin.left}
+          y2={margin.top + plotH}
+          stroke="rgba(255,255,255,0.25)"
+          strokeWidth="1"
+        />
+        {/* X axis line */}
+        <line
+          x1={margin.left}
+          y1={margin.top + plotH}
+          x2={margin.left + plotW}
+          y2={margin.top + plotH}
+          stroke="rgba(255,255,255,0.25)"
+          strokeWidth="1"
+        />
+
+        {/* Y grid + tick labels */}
+        {yTicks.map((tick, tickIdx) => {
+          const y =
+            margin.top +
+            plotH -
+            ((tick - min) / range) * plotH;
+          return (
+            <g key={`y-${tickIdx}-${tick}`}>
+              <line
+                x1={margin.left}
+                y1={y}
+                x2={margin.left + plotW}
+                y2={y}
+                stroke="rgba(255,255,255,0.06)"
+                strokeWidth="1"
+              />
+              <text
+                x={margin.left - 8}
+                y={y + 4}
+                textAnchor="end"
+                fill="rgba(255,255,255,0.55)"
+                fontSize="10"
+                fontFamily="ui-monospace, monospace"
+              >
+                {formatAxisValue(tick)}
+              </text>
+            </g>
+          );
+        })}
+
+        {/* Y axis title */}
+        <text
+          x={14}
+          y={margin.top + plotH / 2}
+          textAnchor="middle"
+          fill="rgba(255,255,255,0.65)"
+          fontSize="11"
+          fontFamily="ui-monospace, monospace"
+          transform={`rotate(-90 14 ${margin.top + plotH / 2})`}
+        >
+          {yTitle}
+        </text>
+
+        {/* Data line */}
+        <polyline
+          fill="none"
+          stroke="#34d399"
+          strokeWidth="2.5"
+          points={polyline}
+        />
+        {coords.map((c, i) => (
+          <circle key={i} cx={c.x} cy={c.y} r="3.5" fill="#22d3ee" />
+        ))}
+
+        {/* X tick labels */}
+        {coords.map((c, i) =>
+          i % xLabelStep === 0 || i === coords.length - 1 ? (
+            <text
+              key={`x-${i}`}
+              x={c.x}
+              y={margin.top + plotH + 14}
+              textAnchor="end"
+              fill="rgba(255,255,255,0.55)"
+              fontSize="9"
+              fontFamily="ui-monospace, monospace"
+              transform={`rotate(-35 ${c.x} ${margin.top + plotH + 14})`}
+            >
+              {c.label}
+            </text>
+          ) : null,
+        )}
+
+        {/* X axis title */}
+        <text
+          x={margin.left + plotW / 2}
+          y={height - 8}
+          textAnchor="middle"
+          fill="rgba(255,255,255,0.65)"
+          fontSize="11"
+          fontFamily="ui-monospace, monospace"
+        >
+          {xTitle}
+        </text>
+      </svg>
+    </div>
+  );
+}
+
+function VerticalBarChartWithAxes({
+  points,
+  profile,
+}: {
+  points: Array<{ label: string; value: number }>;
+  profile: ChartProfile;
+}) {
+  const width = 520;
+  const height = 260;
+  const margin = { top: 20, right: 20, bottom: 72, left: 64 };
+  const plotW = width - margin.left - margin.right;
+  const plotH = height - margin.top - margin.bottom;
+  const { min, max, ticks: yTicks } = buildYAxis(points.map((p) => p.value));
+  const range = max - min || 1;
+  const barW = Math.max(8, plotW / Math.max(points.length, 1) - 4);
+  const xTitle = axisTitle(profile, "x");
+  const yTitle = axisTitle(profile, "y");
+
+  return (
+    <div className="rounded-lg border border-white/10 bg-background/20 p-4 space-y-2">
+      <p className="font-mono text-xs tracking-widest text-muted-foreground">
+        CHART · {profile.title}
+      </p>
+      <svg viewBox={`0 0 ${width} ${height}`} className="w-full max-w-2xl h-auto" role="img">
+        <line
+          x1={margin.left}
+          y1={margin.top}
+          x2={margin.left}
+          y2={margin.top + plotH}
+          stroke="rgba(255,255,255,0.25)"
+        />
+        <line
+          x1={margin.left}
+          y1={margin.top + plotH}
+          x2={margin.left + plotW}
+          y2={margin.top + plotH}
+          stroke="rgba(255,255,255,0.25)"
+        />
+        {yTicks.map((tick, tickIdx) => {
+          const y = margin.top + plotH - ((tick - min) / range) * plotH;
+          return (
+            <g key={`y-${tickIdx}-${tick}`}>
+              <line
+                x1={margin.left}
+                y1={y}
+                x2={margin.left + plotW}
+                y2={y}
+                stroke="rgba(255,255,255,0.06)"
+              />
+              <text
+                x={margin.left - 8}
+                y={y + 4}
+                textAnchor="end"
+                fill="rgba(255,255,255,0.55)"
+                fontSize="10"
+                fontFamily="ui-monospace, monospace"
+              >
+                {formatAxisValue(tick)}
+              </text>
+            </g>
+          );
+        })}
+        <text
+          x={14}
+          y={margin.top + plotH / 2}
+          textAnchor="middle"
+          fill="rgba(255,255,255,0.65)"
+          fontSize="11"
+          fontFamily="ui-monospace, monospace"
+          transform={`rotate(-90 14 ${margin.top + plotH / 2})`}
+        >
+          {yTitle}
+        </text>
+        {points.map((p, i) => {
+          const x =
+            margin.left +
+            (i + 0.5) * (plotW / Math.max(points.length, 1)) -
+            barW / 2;
+          const barH = (p.value / range) * plotH;
+          const y = margin.top + plotH - barH;
+          return (
+            <g key={`${p.label}-${i}`}>
+              <rect
+                x={x}
+                y={y}
+                width={barW}
+                height={barH}
+                fill="url(#barGradient)"
+                rx="2"
+              />
+              {(i % 2 === 0 || points.length <= 8) && (
+                <text
+                  x={x + barW / 2}
+                  y={margin.top + plotH + 14}
+                  textAnchor="end"
+                  fill="rgba(255,255,255,0.55)"
+                  fontSize="9"
+                  fontFamily="ui-monospace, monospace"
+                  transform={`rotate(-35 ${x + barW / 2} ${margin.top + plotH + 14})`}
+                >
+                  {p.label}
+                </text>
+              )}
+            </g>
+          );
+        })}
+        <defs>
+          <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#22d3ee" stopOpacity="0.9" />
+            <stop offset="100%" stopColor="#34d399" stopOpacity="0.7" />
+          </linearGradient>
+        </defs>
+        <text
+          x={margin.left + plotW / 2}
+          y={height - 8}
+          textAnchor="middle"
+          fill="rgba(255,255,255,0.65)"
+          fontSize="11"
+          fontFamily="ui-monospace, monospace"
+        >
+          {xTitle}
+        </text>
+      </svg>
+    </div>
+  );
+}
+
+function normalizeChartProfile(
+  profile: ChartProfile,
+  columns: string[],
+): ChartProfile {
+  if (
+    profile.label_column === "year" &&
+    columns.includes("month") &&
+    columns.includes("year")
+  ) {
+    return {
+      ...profile,
+      chart_type: "line",
+      label_column: "year_month",
+      label_columns: ["year", "month"],
+      time_series: true,
+      title: profile.title.includes("by year")
+        ? profile.title.replace("by year", "over time")
+        : profile.title,
+    };
+  }
+  if (
+    profile.label_column === "year" &&
+    columns.includes("quarter") &&
+    !profile.label_columns
+  ) {
+    return {
+      ...profile,
+      chart_type: "line",
+      label_column: "year_quarter",
+      label_columns: ["year", "quarter"],
+      time_series: true,
+    };
+  }
+  return profile;
+}
+
+function ResultsChartFromProfile({
+  preview,
+  profile: rawProfile,
+}: {
+  preview: ResultPreview;
+  profile: ChartProfile;
+}) {
+  const rows = preview.rows ?? [];
+  const columns = preview.columns ?? [];
+  if (rows.length === 0) return null;
+
+  const profile = normalizeChartProfile(rawProfile, columns);
+
+  const labelCols =
+    profile.label_columns ??
+    (profile.label_column === "order_year_month"
+      ? ["order_year", "order_month"]
+      : profile.label_column === "year_month"
+        ? ["year", "month"]
+        : profile.label_column === "year_quarter"
+          ? ["year", "quarter"]
+          : [profile.label_column]);
+
+  const buildLabel = (row: Record<string, unknown> | unknown[], idx: number) => {
+    if (
+      (profile.label_column === "order_year_month" ||
+        profile.label_column === "year_month") &&
+      labelCols.length >= 2
+    ) {
+      const y = cellValue(row, labelCols[0], columns);
+      const m = cellValue(row, labelCols[1], columns);
+      if (y != null && m != null) {
+        const month = String(Math.trunc(Number(m))).padStart(2, "0");
+        return `${Math.trunc(Number(y))}-${month}`;
+      }
+    }
+    if (profile.label_column === "year_quarter" && labelCols.length >= 2) {
+      const y = cellValue(row, labelCols[0], columns);
+      const q = cellValue(row, labelCols[1], columns);
+      if (y != null && q != null) {
+        return `${Math.trunc(Number(y))}-Q${q}`;
+      }
+    }
+    const primary = cellValue(row, profile.label_column, columns);
+    return primary != null ? String(primary) : `row ${idx + 1}`;
+  };
+
+  const buildSortKey = (row: Record<string, unknown> | unknown[], idx: number) => {
+    if (labelCols.length >= 2 && isTimeSeriesProfile(profile)) {
+      const a = cellValue(row, labelCols[0], columns);
+      const b = cellValue(row, labelCols[1], columns);
+      if (a != null && b != null) {
+        return `${String(Math.trunc(Number(a))).padStart(4, "0")}-${String(Math.trunc(Number(b))).padStart(2, "0")}`;
+      }
+    }
+    const numeric = Number(buildLabel(row, idx));
+    if (!Number.isNaN(numeric) && String(buildLabel(row, idx)).match(/^-?\d/)) {
+      return String(numeric).padStart(12, "0");
+    }
+    return buildLabel(row, idx);
+  };
+
+  const points = sortChartPoints(
+    rows.slice(0, 24).map((row, idx) => {
+      const label = buildLabel(row, idx);
+      const raw = cellValue(row, profile.value_column, columns);
+      const value = typeof raw === "number" ? raw : Number(raw);
+      return {
+        label,
+        value: Number.isNaN(value) ? 0 : value,
+        sortKey: buildSortKey(row, idx),
+      };
+    }),
+    profile,
+  );
+
+  if (profile.chart_type === "line" || profile.time_series) {
+    return <LineChartWithAxes points={points} profile={profile} />;
+  }
+
+  const horizontal = profile.chart_type === "horizontal_bar";
+
+  if (!horizontal) {
+    return <VerticalBarChartWithAxes points={points} profile={profile} />;
+  }
+
+  const max = Math.max(...points.map((p) => p.value), 1);
+
+  return (
+    <div className="rounded-lg border border-white/10 bg-background/20 p-4 space-y-3">
+      <p className="font-mono text-xs tracking-widest text-muted-foreground">
+        CHART · {profile.title}
+      </p>
+      <div className="space-y-2">
+        {points.map((p, i) => (
+          <div
+            key={`${p.label}-${i}`}
+            className={`grid items-center gap-3 ${
+              horizontal
+                ? "grid-cols-[minmax(0,160px)_1fr_minmax(72px,auto)]"
+                : "grid-cols-[minmax(0,120px)_1fr]"
+            }`}
+          >
+            <span className="text-xs font-mono truncate text-muted-foreground" title={p.label}>
+              {p.label}
+            </span>
+            <div className="h-3 rounded-full bg-white/5 overflow-hidden">
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-agent-cyan/80 to-emerald-400/80"
+                style={{ width: `${Math.max(6, (p.value / max) * 100)}%` }}
+              />
+            </div>
+            {horizontal && (
+              <span className="text-xs font-mono text-agent-cyan tabular-nums text-right">
+                {p.value.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+              </span>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ResultsChart({
+  preview,
+  chartProfile,
+}: {
+  preview: ResultPreview;
+  chartProfile?: ChartProfile;
+}) {
+  if (chartProfile) {
+    return <ResultsChartFromProfile preview={preview} profile={chartProfile} />;
+  }
+  return <ResultsChartLegacy preview={preview} />;
+}
+
+function ResultsChartLegacy({ preview }: { preview: ResultPreview }) {
   const picked = pickChartColumns(preview);
   if (!picked) return null;
 
@@ -191,6 +727,7 @@ function ResultsChart({ preview }: { preview: ResultPreview }) {
 export function DeliveryResults({
   runId,
   preview,
+  chartProfile,
   complete,
   hasReportPdf,
   hasProfileHtml,
@@ -367,7 +904,9 @@ export function DeliveryResults({
         <ResultsTable preview={preview} complete={complete} />
       </div>
 
-      {hasRows && preview ? <ResultsChart preview={preview} /> : null}
+      {hasRows && preview ? (
+        <ResultsChart preview={preview} chartProfile={chartProfile} />
+      ) : null}
     </div>
   );
 }

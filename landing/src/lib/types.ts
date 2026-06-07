@@ -27,8 +27,18 @@ export type ResultPreview = {
   rows?: Array<Record<string, unknown> | unknown[]>;
 };
 
+export type ChartProfile = {
+  chart_type: "bar" | "line" | "horizontal_bar";
+  label_column: string;
+  value_column: string;
+  title: string;
+  time_series?: boolean;
+  label_columns?: string[];
+};
+
 export type RunReport = {
   result_preview?: ResultPreview;
+  chart_profile?: ChartProfile;
   profile_report?: { row_count?: number };
   artifacts?: {
     downloads?: Array<{ label: string; url: string }>;
@@ -66,6 +76,7 @@ export type RunState = {
     ydata_profile_s3_uri?: string;
     profile_report_url?: string;
     report_pdf_stored?: boolean;
+    chart_profile?: ChartProfile;
   };
   evaluations?: Record<string, { passed?: boolean; summary?: string }>;
   parsed_spec?: Record<string, unknown>;
@@ -82,4 +93,20 @@ export type SubmitStoryResponse = {
 export type HealthResponse = {
   auto_gate_1?: boolean;
   auto_gate_2?: boolean;
+};
+
+export type ValidationCheck = {
+  name: string;
+  passed: boolean;
+  message: string;
+  severity?: string;
+};
+
+export type StoryValidateResponse = {
+  passed: boolean;
+  score: number;
+  summary?: string;
+  checks: ValidationCheck[];
+  suggested_fixes: string[];
+  generated_test_path?: string;
 };

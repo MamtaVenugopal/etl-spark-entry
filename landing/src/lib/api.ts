@@ -2,6 +2,7 @@ import type {
   HealthResponse,
   RunState,
   StructuredStory,
+  StoryValidateResponse,
   SubmitStoryResponse,
 } from "./types";
 
@@ -44,6 +45,23 @@ export async function refineStory(raw: string): Promise<StructuredStory> {
   const data = (await r.json()) as { story: StructuredStory; error?: string };
   if (data.error) throw new Error(data.error);
   return data.story;
+}
+
+export async function validateStory(
+  story: StructuredStory,
+  storyId = "US-DRAFT",
+): Promise<StoryValidateResponse> {
+  if (!API_BASE) throw new Error("VITE_API_BASE_URL is not configured.");
+  const r = await fetch(`${API_BASE}/stories/validate`, {
+    method: "POST",
+    headers: JSON_HEADERS,
+    body: JSON.stringify({ story, story_id: storyId, generate_tests: true }),
+  });
+  if (!r.ok) {
+    const txt = await r.text();
+    throw new Error(txt.slice(0, 300) || `Validate failed (${r.status})`);
+  }
+  return (await r.json()) as StoryValidateResponse;
 }
 
 export async function submitStory(
