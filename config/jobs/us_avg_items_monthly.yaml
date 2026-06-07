@@ -1,0 +1,4 @@
+story_id: US-AVG-ITEMS-MONTHLY
+target_table: gold.average_items_per_order_monthly
+spark_job_path: src/jobs/average_items_per_order_monthly.py
+data_platform: aws
