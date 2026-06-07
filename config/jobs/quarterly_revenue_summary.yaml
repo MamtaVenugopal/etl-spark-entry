@@ -1,0 +1,13 @@
+job_name: quarterly_revenue_summary
+source_tables:
+  - olist_orders_raw
+  - olist_order_items_raw
+target_table: gold.quarterly_revenue_summary
+transformations:
+  - Join olist_orders_raw with olist_order_items_raw on olist_orders_raw.order_id = olist_order_items_raw.order_id
+  - Filter for completed orders where olist_orders_raw.order_status = 'delivered'
+  - Aggregate total revenue by quarter using the order purchase timestamp and sum the order_item_price * order_item_quantity
+acceptance_criteria:
+  - SELECT COUNT(*) FROM gold.quarterly_revenue_summary WHERE revenue IS NOT NULL
+  - SELECT SUM(revenue) FROM gold.quarterly_revenue_summary WHERE quarter = '2023-Q1'
+  - SELECT DISTINCT quarter FROM gold.quarterly_revenue_summary
