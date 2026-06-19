@@ -1,0 +1,5 @@
+story_id: US-1781906725463
+target_table: gold.order_count_by_seller_state_city
+spark_job_path: src/jobs/order_count_by_seller_state_city.py
+data_platform: aws
+airflow_dag_path: dags/order_count_by_seller_state_city_dag.py
