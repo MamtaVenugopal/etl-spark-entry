@@ -15,7 +15,7 @@ Not a separate worker step or delivery sub-agent.
 
 | Layer | Component | LLM? |
 |-------|-----------|------|
-| Selection | `ChartSelectionAgent` + [visualization_selection.txt](../../src/prompts/visualization_selection.txt) (primary) · [chart_selection.txt](../../src/prompts/chart_selection.txt) (legacy fallback) | Yes (rules fallback) |
+| Selection | `ChartSelectionAgent` + [visualization_selection.txt](../../src/prompts/visualization_selection.txt) (Universal Data Visualization Selection Prompt) · [chart_selection.txt](../../src/prompts/chart_selection.txt) (legacy fallback) | Yes (rules fallback) |
 | Data | `build_chart_preview()` | No — acceptance-scoped SQL |
 | PDF | `fetch_chart_data()` + matplotlib | No |
 | UI | `DeliveryResults.tsx` | No |
