@@ -1,4 +1,4 @@
-"""Auto-generated structural tests for US-1781899519216."""
+"""Auto-generated structural tests for US-1781901206479."""
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
