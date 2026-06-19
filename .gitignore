@@ -2,32 +2,34 @@
 logs
 *.log
 npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-lerna-debug.log*
 
+# Dependencies & build
 node_modules
 dist
 dist-ssr
-.output
-.vinxi
-.tanstack/**
-.nitro
 *.local
+landing/node_modules
+landing/dist
+landing/tsconfig.tsbuildinfo
 
-# Wrangler / Cloudflare
-.wrangler/
-.dev.vars
+# Secrets — never commit
+.env
+.env.*
+!.env.example
+!landing/.env.example
 
-# Editor directories and files
+# Python
+.pytest_cache
+__pycache__
+*.pyc
+.venv
+venv
+
+# OS / IDE
+.DS_Store
 .vscode/*
 !.vscode/extensions.json
 .idea
-.DS_Store
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
+
+# Deploy cache
 .vercel

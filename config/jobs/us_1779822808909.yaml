@@ -1,5 +1,0 @@
-story_id: US-1779822808909
-target_table: gold.monthly_revenue_summary
-spark_job_path: src/jobs/monthly_revenue_summary.py
-airflow_dag_path: dags/us_1779822808909_monthly_revenue_dag.py
-data_platform: aws

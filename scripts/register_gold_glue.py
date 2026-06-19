@@ -27,7 +27,7 @@ import os
 
 from src.services.aws_credentials import require_aws_credentials
 
-# Known schemas for capstone / common Lovable tables (crawler-free)
+# Known schemas for capstone / common gold tables (crawler-free)
 TABLE_SCHEMAS = {
     "monthly_revenue_summary": [
         {"Name": "order_year", "Type": "int"},
