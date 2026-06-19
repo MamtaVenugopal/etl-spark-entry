@@ -14,6 +14,17 @@
 
 ---
 
+## Verified end-to-end examples (live runs)
+
+Stories that completed the full pipeline (intake → EMR Spark → Glue → delivery PDF + chart):
+
+| Story | Gold table | Live run | PR |
+|-------|------------|----------|-----|
+| **Order Count by Seller State** | `gold.order_count_by_seller_state` | [12d7cf36…](https://etl-spark-entry-qutk.vercel.app/runs/12d7cf36-fbf0-4dea-92ac-0715d337337c) | [etl-spark-entry #46](https://github.com/MamtaVenugopal/etl-spark-entry/pull/46) |
+| Monthly Revenue Summary for Q1 | `gold.monthly_revenue_summary` | [6777ce93…](https://etl-spark-entry-qutk.vercel.app/runs/6777ce93-614a-48b6-98ec-0287c3214d32) | [etl-spark-entry #40](https://github.com/MamtaVenugopal/etl-spark-entry/pull/40) |
+
+---
+
 ## Valid tables & columns (what exists in Olist)
 
 Use these names in **valid** stories. In Databricks/Unity Catalog you may use `_raw` suffix (bronze) as in the capstone README.
@@ -234,7 +245,34 @@ acceptance_criteria:
 
 ---
 
-### US-007 — Geographic order density
+### US-007a — Order Count by Seller State (verified EMR)
+
+**Title:** Order Count by Seller State  
+**Expected:** PASS  
+**Live run:** [12d7cf36-fbf0-4dea-92ac-0715d337337c](https://etl-spark-entry-qutk.vercel.app/runs/12d7cf36-fbf0-4dea-92ac-0715d337337c) · **PR:** [etl-spark-entry #46](https://github.com/MamtaVenugopal/etl-spark-entry/pull/46)
+
+```yaml
+story_id: US-1781907505486
+title: Order Count by Seller State
+intent: aggregate
+source_tables:
+  - olist_orders_raw
+  - olist_order_items_raw
+  - olist_sellers_raw
+target_table: gold.order_count_by_seller_state
+key_transformations:
+  - Join olist_orders_raw to olist_order_items_raw on order_id
+  - Join olist_order_items_raw to olist_sellers_raw on seller_id
+  - Group by seller_state
+  - Count distinct order_id as total_orders
+acceptance_criteria:
+  - SELECT COUNT(*) FROM gold.order_count_by_seller_state WHERE total_orders > 0
+  - SELECT seller_state, total_orders FROM gold.order_count_by_seller_state WHERE seller_state IS NOT NULL LIMIT 10
+```
+
+---
+
+### US-007 — Order Count by Seller State and City
 
 **Title:** Order Count by Seller State and City  
 **Expected:** PASS
@@ -244,17 +282,18 @@ story_id: US-007
 title: Order Count by Seller State and City
 intent: aggregate
 source_tables:
+  - olist_orders_raw
   - olist_order_items_raw
   - olist_sellers_raw
-  - olist_geolocation_raw
-target_table: gold.orders_by_seller_geography
+target_table: gold.order_count_by_seller_state_city
 key_transformations:
-  - join items to sellers on seller_id
-  - enrich seller zip with geolocation lat lng
-  - count distinct order_id by seller_state
+  - Join olist_orders_raw to olist_order_items_raw on order_id
+  - Join olist_order_items_raw to olist_sellers_raw on seller_id
+  - Group by seller_state and seller_city
+  - Count distinct order_id as total_orders
 acceptance_criteria:
-  - order_count > 0
-  - seller_state length equals 2
+  - SELECT COUNT(*) FROM gold.order_count_by_seller_state_city WHERE total_orders > 0
+  - SELECT seller_state, seller_city, total_orders FROM gold.order_count_by_seller_state_city WHERE seller_state IS NOT NULL LIMIT 10
 ```
 
 ---
@@ -610,7 +649,8 @@ acceptance_criteria:
 | US-004 | Valid | Payments + geo |
 | US-005 | Valid | Delivery SLA |
 | US-006 | Valid | Freight by category |
-| US-007 | Valid | Seller geography |
+| US-007a | Valid | Seller state order count (verified EMR) |
+| US-007 | Valid | Seller state/city order count |
 | US-008 | Valid | Reviews |
 | US-009 | Valid | Installments |
 | US-010 | Valid | Product outliers |

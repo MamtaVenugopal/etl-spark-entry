@@ -3,7 +3,9 @@
 An **agentic ETL pipeline** that turns natural-language user stories into production-style artifacts on AWS: structured specs, PySpark jobs, Airflow DAGs, GitHub PRs, gold tables on S3, validation, profiling, and a **Final delivery PDF** with story-aware charts.
 
 **Live demo (UI):** [etl-spark-entry-qutk.vercel.app/intake](https://etl-spark-entry-qutk.vercel.app/intake)  
-**Example completed run:** [Monthly Revenue Summary for Q1](https://etl-spark-entry-qutk.vercel.app/runs/6777ce93-614a-48b6-98ec-0287c3214d32)  
+**Example completed runs:**
+- [Order Count by Seller State](https://etl-spark-entry-qutk.vercel.app/runs/12d7cf36-fbf0-4dea-92ac-0715d337337c) — EMR Spark, 23 gold rows, horizontal bar chart ([PR #46](https://github.com/MamtaVenugopal/etl-spark-entry/pull/46))
+- [Monthly Revenue Summary for Q1](https://etl-spark-entry-qutk.vercel.app/runs/6777ce93-614a-48b6-98ec-0287c3214d32) ([PR #40](https://github.com/MamtaVenugopal/etl-spark-entry/pull/40))
 **Backend (agents + API):** [autonomous-etl-agent](https://github.com/MamtaVenugopal/autonomous-etl-agent)
 
 ---
@@ -58,7 +60,7 @@ FastAPI + Redis + Worker (autonomous-etl-agent)
 Run page: preview, charts, YData HTML, Final delivery PDF
 ```
 
-**Agents and prompts:** see [docs/agent/AGENT_PIPELINE_OVERVIEW.md](docs/agent/AGENT_PIPELINE_OVERVIEW.md).
+**Agents and prompts:** see [docs/agent/WHY_MULTI_AGENT.md](docs/agent/WHY_MULTI_AGENT.md) (design rationale for reviewers) and [docs/agent/AGENT_PIPELINE_OVERVIEW.md](docs/agent/AGENT_PIPELINE_OVERVIEW.md).
 
 **Capstone stories:** [docs/agent/README_USERSTORIES.md](docs/agent/README_USERSTORIES.md) (20 Olist user stories).
 
