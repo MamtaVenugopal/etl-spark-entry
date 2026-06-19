@@ -4,6 +4,8 @@ Turn a **user story** (YAML or refined text) into gold data on S3, a GitHub PR, 
 
 **For hiring managers / reviewers:** [WHY_MULTI_AGENT.md](./WHY_MULTI_AGENT.md) — why four agents, evaluation criteria per step, chart vs preview data.
 
+**Backend (full detail):** [autonomous-etl-agent/AGENT_PIPELINE_OVERVIEW.md](https://github.com/MamtaVenugopal/autonomous-etl-agent/blob/main/AGENT_PIPELINE_OVERVIEW.md)
+
 ## Four agents (current worker)
 
 ```text
