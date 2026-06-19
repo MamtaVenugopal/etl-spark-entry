@@ -3,9 +3,7 @@
 An **agentic ETL pipeline** that turns natural-language user stories into production-style artifacts on AWS: structured specs, PySpark jobs, Airflow DAGs, GitHub PRs, gold tables on S3, validation, profiling, and a **Final delivery PDF** with story-aware charts.
 
 **Live demo (UI):** [etl-spark-entry-qutk.vercel.app/intake](https://etl-spark-entry-qutk.vercel.app/intake)  
-**Example completed runs:**
-- [Order Count by Seller State](https://etl-spark-entry-qutk.vercel.app/runs/12d7cf36-fbf0-4dea-92ac-0715d337337c) — EMR Spark, 23 gold rows, horizontal bar chart ([PR #46](https://github.com/MamtaVenugopal/etl-spark-entry/pull/46))
-- [Monthly Revenue Summary for Q1](https://etl-spark-entry-qutk.vercel.app/runs/6777ce93-614a-48b6-98ec-0287c3214d32) ([PR #40](https://github.com/MamtaVenugopal/etl-spark-entry/pull/40))
+**Verified completed run:** [Order Count by Seller State](https://etl-spark-entry-qutk.vercel.app/runs/12d7cf36-fbf0-4dea-92ac-0715d337337c) — EMR Spark, 23 gold rows, horizontal bar chart ([PR #46](https://github.com/MamtaVenugopal/etl-spark-entry/pull/46))  
 **Backend (agents + API):** [autonomous-etl-agent](https://github.com/MamtaVenugopal/autonomous-etl-agent)
 
 ---
@@ -16,13 +14,13 @@ An **agentic ETL pipeline** that turns natural-language user stories into produc
 
 Free-text → AI refine → structured YAML → ship to the agent pipeline.
 
-![Story intake UI](docs/images/intake.png)
+[![Story intake UI — open live demo](docs/images/intake.png)](https://etl-spark-entry-qutk.vercel.app/intake)
 
 ### Run tracker (complete run)
 
-Live pipeline status, gold-table preview, 3D delivery chart, YData profile link, and PDF download.
+[Order Count by Seller State](https://etl-spark-entry-qutk.vercel.app/runs/12d7cf36-fbf0-4dea-92ac-0715d337337c) — live pipeline status, gold-table preview, horizontal bar chart, YData profile, and Final delivery PDF.
 
-![Run tracker — complete delivery](docs/images/run-tracker-complete.png)
+[![Run tracker — Order Count by Seller State (complete)](docs/images/run-tracker-complete.png)](https://etl-spark-entry-qutk.vercel.app/runs/12d7cf36-fbf0-4dea-92ac-0715d337337c)
 
 ---
 
