@@ -2,7 +2,9 @@
 
 Turn a **user story** (YAML or refined text) into gold data on S3, a GitHub PR, and a **Final delivery PDF**.
 
-## Worker steps
+**For hiring managers / reviewers:** [WHY_MULTI_AGENT.md](./WHY_MULTI_AGENT.md) — why four agents, evaluation criteria per step, chart vs preview data.
+
+## Four agents (current worker)
 
 ```text
 task_breakdown → coding → execute → delivery
@@ -22,7 +24,7 @@ task_breakdown → coding → execute → delivery
 |-------|------|
 | Profiling | YData HTML + SQL smoke metrics |
 | Testing | Story-aware pytest + structural tests |
-| PR | GitHub PR (+ optional merge gate) |
+| PR | GitHub PR (+ optional Gate 2 merge) |
 | Report | Gold sample, Chart Selection Agent, audit JSON, PDF |
 
 **Chart agent prompt:** [chart_selection.txt](../../src/prompts/chart_selection.txt)
@@ -40,7 +42,7 @@ task_breakdown → coding → execute → delivery
 | Artifact | Access |
 |----------|--------|
 | Gold table preview | Run page / `result_preview` |
-| Story-aware chart | `outputs.chart_profile` |
+| Acceptance-scoped chart | `report.chart_preview`, `outputs.chart_profile` |
 | YData profile | `GET /runs/{id}/profile.html` |
 | **Final delivery PDF** | `GET /runs/{id}/report.pdf` |
 
@@ -53,4 +55,5 @@ task_breakdown → coding → execute → delivery
 
 Set `AUTO_GATE_1=true` and `AUTO_GATE_2=true` in the backend `.env` to auto-clear when evaluations pass.
 
-Backend repo: [autonomous-etl-agent](https://github.com/MamtaVenugopal/autonomous-etl-agent).
+**Live demo:** [etl-spark-entry-qutk.vercel.app/intake](https://etl-spark-entry-qutk.vercel.app/intake)  
+**Backend repo:** [autonomous-etl-agent](https://github.com/MamtaVenugopal/autonomous-etl-agent) — full detail in [AGENT_PIPELINE_OVERVIEW.md](https://github.com/MamtaVenugopal/autonomous-etl-agent/blob/main/AGENT_PIPELINE_OVERVIEW.md).
