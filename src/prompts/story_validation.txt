@@ -10,7 +10,7 @@ Return JSON only:
 }
 
 Fail if:
-- acceptance criteria SQL references bronze row columns (order_item_id, order_id) on an aggregate gold table
+- acceptance criteria SQL references bronze row columns (order_item_id, order_id, product_id, customer_id, seller_id) on an aggregate gold table
 - transformations use order_date instead of order_purchase_timestamp
 - "average items per order" stories skip the per-order count step before monthly AVG
 - acceptance criteria use years outside 2016-2018 for Olist data

@@ -19,3 +19,5 @@ Rules:
 JSON schema fields:
 story_id, title, intent, source_tables, target_table, transformations, acceptance_criteria,
 data_platform, storage_format, glue_database_bronze, glue_database_gold, orchestration
+
+Agent 1 will attach source_table_columns, join_graph_hint, and schema_context after generation from FAISS — do not invent columns not in RAG context.

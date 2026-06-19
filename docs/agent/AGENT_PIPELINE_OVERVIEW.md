@@ -31,7 +31,7 @@ task_breakdown → coding → execute → delivery
 | PR | GitHub PR (+ optional Gate 2 merge) |
 | Report | Gold sample, Chart Selection Agent, audit JSON, PDF |
 
-**Charts:** [AGENT4_VISUALIZATION.md](./AGENT4_VISUALIZATION.md) · **Chart prompt:** [chart_selection.txt](../../src/prompts/chart_selection.txt)
+**Charts:** [AGENT4_VISUALIZATION.md](./AGENT4_VISUALIZATION.md) · **Prompts:** [visualization_selection.txt](../../src/prompts/visualization_selection.txt) (primary), [chart_selection.txt](../../src/prompts/chart_selection.txt) (legacy)
 
 ---
 

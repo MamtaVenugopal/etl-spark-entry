@@ -117,7 +117,7 @@ Charts are **two layers**—important for demos:
 
 | Layer | Mechanism | Criteria |
 |-------|-----------|----------|
-| **Chart type & axes** | **Chart Selection Agent** — [`chart_selection.txt`](../../src/prompts/chart_selection.txt) + rules fallback | LLM chooses line/bar/3D using story, **acceptance_criteria**, gold columns; validated against real column names. |
+| **Chart type & axes** | **Chart Selection Agent** — [`visualization_selection.txt`](../../src/prompts/visualization_selection.txt) (primary) + [`chart_selection.txt`](../../src/prompts/chart_selection.txt) (legacy) + rules fallback | LLM chooses line/bar/3D/grouped_bar/etc. using story, **acceptance_criteria**, gold columns; validated against real column names. |
 | **Chart data points** | **`build_chart_preview()`** — no LLM | SQL `SUM(metric) GROUP BY year, month` filtered by acceptance `year IN … AND month IN …`; UI uses `chart_preview`, not raw top-N preview rows. |
 
 **Why separate from “one chart prompt”:** Sample preview rows are often top categories (e.g. Nov 2017)—misleading for Q1 time-series stories. Acceptance-scoped SQL is the source of truth for the line chart.

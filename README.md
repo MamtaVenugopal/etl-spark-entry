@@ -32,7 +32,7 @@ Free-text → AI refine → structured YAML → ship to the agent pipeline.
 | [`src/jobs/`](src/jobs/) | PySpark gold pipelines (generated / reviewed by Agent 2) |
 | [`dags/`](dags/) | MWAA Airflow DAGs — EMR create → Spark → terminate |
 | [`config/jobs/`](config/jobs/) | Job metadata (story id, Spark path, DAG path) |
-| [`src/prompts/`](src/prompts/) | LLM prompt templates (mirrored from backend) |
+| [`src/prompts/`](src/prompts/) | LLM prompt templates — [chart](src/prompts/visualization_selection.txt), [coding](src/prompts/coding.txt), [task breakdown](src/prompts/task_breakdown.txt), [story validation](src/prompts/story_validation.txt) |
 | [`tests/`](tests/) | Structural pytest for generated jobs and DAGs |
 | [`scripts/`](scripts/) | Glue registration, EMR log fetch |
 | [`docs/agent/`](docs/agent/) | Pipeline docs, user stories, design rationale (public) |
