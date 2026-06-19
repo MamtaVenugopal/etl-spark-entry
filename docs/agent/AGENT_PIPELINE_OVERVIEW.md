@@ -4,7 +4,7 @@ Turn a **user story** (YAML or refined text) into gold data on S3, a GitHub PR, 
 
 **For hiring managers / reviewers:** [WHY_MULTI_AGENT.md](./WHY_MULTI_AGENT.md) — why four agents, evaluation criteria per step, chart vs preview data.
 
-**Backend (full detail):** [autonomous-etl-agent/AGENT_PIPELINE_OVERVIEW.md](https://github.com/MamtaVenugopal/autonomous-etl-agent/blob/main/AGENT_PIPELINE_OVERVIEW.md)
+**Backend (full detail):** [autonomous-etl-agent/AGENT_PIPELINE_OVERVIEW.md](https://github.com/MamtaVenugopal/autonomous-etl-agent/blob/main/autonomous-etl-agent/AGENT_PIPELINE_OVERVIEW.md)
 
 ## Four agents (current worker)
 
@@ -58,4 +58,4 @@ task_breakdown → coding → execute → delivery
 Set `AUTO_GATE_1=true` and `AUTO_GATE_2=true` in the backend `.env` to auto-clear when evaluations pass.
 
 **Live demo:** [etl-spark-entry-qutk.vercel.app/intake](https://etl-spark-entry-qutk.vercel.app/intake)  
-**Backend repo:** [autonomous-etl-agent](https://github.com/MamtaVenugopal/autonomous-etl-agent) — full detail in [AGENT_PIPELINE_OVERVIEW.md](https://github.com/MamtaVenugopal/autonomous-etl-agent/blob/main/AGENT_PIPELINE_OVERVIEW.md).
+**Backend repo:** [autonomous-etl-agent](https://github.com/MamtaVenugopal/autonomous-etl-agent) — full detail in [AGENT_PIPELINE_OVERVIEW.md](https://github.com/MamtaVenugopal/autonomous-etl-agent/blob/main/autonomous-etl-agent/AGENT_PIPELINE_OVERVIEW.md).

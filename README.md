@@ -58,7 +58,7 @@ FastAPI + Redis + Worker (autonomous-etl-agent)
 Run page: preview, charts, YData HTML, Final delivery PDF
 ```
 
-**Agents and prompts:** see [docs/agent/WHY_MULTI_AGENT.md](docs/agent/WHY_MULTI_AGENT.md) (design rationale) and [docs/agent/AGENT_PIPELINE_OVERVIEW.md](docs/agent/AGENT_PIPELINE_OVERVIEW.md) (pipeline steps). Backend detail: [autonomous-etl-agent/AGENT_PIPELINE_OVERVIEW.md](https://github.com/MamtaVenugopal/autonomous-etl-agent/blob/main/AGENT_PIPELINE_OVERVIEW.md).
+**Agents and prompts:** see [docs/agent/WHY_MULTI_AGENT.md](docs/agent/WHY_MULTI_AGENT.md) (design rationale) and [docs/agent/AGENT_PIPELINE_OVERVIEW.md](docs/agent/AGENT_PIPELINE_OVERVIEW.md) (pipeline steps). Backend detail: [autonomous-etl-agent/AGENT_PIPELINE_OVERVIEW.md](https://github.com/MamtaVenugopal/autonomous-etl-agent/blob/main/autonomous-etl-agent/AGENT_PIPELINE_OVERVIEW.md).
 
 **Capstone stories:** [docs/agent/README_USERSTORIES.md](docs/agent/README_USERSTORIES.md) (20 Olist user stories).
 
