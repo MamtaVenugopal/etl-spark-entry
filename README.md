@@ -4,7 +4,7 @@ An **agentic ETL pipeline** that turns natural-language user stories into produc
 
 **Live demo (UI):** [etl-spark-entry-qutk.vercel.app/intake](https://etl-spark-entry-qutk.vercel.app/intake)  
 **Verified completed run:** [Order Count by Seller State](https://etl-spark-entry-qutk.vercel.app/runs/12d7cf36-fbf0-4dea-92ac-0715d337337c) — EMR Spark, 23 gold rows, horizontal bar chart ([PR #46](https://github.com/MamtaVenugopal/etl-spark-entry/pull/46))  
-**Backend (agents + API):** [autonomous-etl-agent](https://github.com/MamtaVenugopal/autonomous-etl-agent)
+**Backend (agents + API):** [docs/agent/](docs/agent/) (pipeline docs on this repo) · source: [autonomous-etl-agent](https://github.com/MamtaVenugopal/autonomous-etl-agent) *(private — see note below)*
 
 ---
 
@@ -35,9 +35,9 @@ Free-text → AI refine → structured YAML → ship to the agent pipeline.
 | [`src/prompts/`](src/prompts/) | LLM prompt templates (mirrored from backend) |
 | [`tests/`](tests/) | Structural pytest for generated jobs and DAGs |
 | [`scripts/`](scripts/) | Glue registration, EMR log fetch |
-| [`docs/agent/`](docs/agent/) | User stories, pipeline overview, `.env.example` |
+| [`docs/agent/`](docs/agent/) | Pipeline docs, user stories, design rationale (public) |
 
-The **FastAPI worker, Redis queue, and agent orchestration** live in the sibling repo [`autonomous-etl-agent`](https://github.com/MamtaVenugopal/autonomous-etl-agent).
+The **FastAPI worker, Redis queue, and agent orchestration** source is in [autonomous-etl-agent](https://github.com/MamtaVenugopal/autonomous-etl-agent) (currently **private** — if the link 404s, use **Settings → Change visibility → Public** on GitHub, or run locally from a clone).
 
 ---
 
@@ -58,9 +58,9 @@ FastAPI + Redis + Worker (autonomous-etl-agent)
 Run page: preview, charts, YData HTML, Final delivery PDF
 ```
 
-**Agents and prompts:** see [docs/agent/WHY_MULTI_AGENT.md](docs/agent/WHY_MULTI_AGENT.md) (design rationale) and [docs/agent/AGENT_PIPELINE_OVERVIEW.md](docs/agent/AGENT_PIPELINE_OVERVIEW.md) (pipeline steps). Backend detail: [autonomous-etl-agent/AGENT_PIPELINE_OVERVIEW.md](https://github.com/MamtaVenugopal/autonomous-etl-agent/blob/main/autonomous-etl-agent/AGENT_PIPELINE_OVERVIEW.md).
+**Agents and prompts:** [docs/agent/WHY_MULTI_AGENT.md](docs/agent/WHY_MULTI_AGENT.md) · [docs/agent/AGENT_PIPELINE_OVERVIEW.md](docs/agent/AGENT_PIPELINE_OVERVIEW.md) · [docs/agent/AGENT4_VISUALIZATION.md](docs/agent/AGENT4_VISUALIZATION.md)
 
-**Capstone stories:** [docs/agent/README_USERSTORIES.md](docs/agent/README_USERSTORIES.md) (20 Olist user stories).
+**Capstone stories:** [docs/agent/README_USERSTORIES.md](docs/agent/README_USERSTORIES.md)
 
 ---
 
